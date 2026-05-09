@@ -3,22 +3,13 @@ package lexer
 import (
 	"errors"
 	"fmt"
+	"language/module/token"
 	"slices"
-
-	t "language/module/token"
 )
 
 var (
 	ErrUnknownCharacter = errors.New("unknown character encountered")
 	ErrUnknownToken     = errors.New("unknown token encountered")
-
-	keywords = []string{
-		"auto", "break", "case", "char", "const", "continue", "default",
-		"do", "double", "else", "enum", "extern", "float", "for", "goto",
-		"if", "int", "long", "register", "return", "short", "signed", "sizeof",
-		"static", "struct", "switch", "typedef", "union", "unsigned", "void",
-		"volatile", "while",
-	}
 
 	alphabet = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	decimal  = []byte("1234567890")
@@ -40,7 +31,7 @@ type Lexer struct {
 	index  int
 
 	line int
-	char int
+	col  int
 }
 
 func New(source []byte) Lexer {
@@ -49,7 +40,7 @@ func New(source []byte) Lexer {
 		index:  0,
 
 		line: 1,
-		char: 0,
+		col:  0,
 	}
 }
 
@@ -66,7 +57,7 @@ func (self *Lexer) consume() (byte, bool) {
 
 	defer func() {
 		self.index++
-		self.char++
+		self.col++
 	}()
 
 	return self.peek()
@@ -74,26 +65,27 @@ func (self *Lexer) consume() (byte, bool) {
 
 func (self *Lexer) advance() {
 	self.line += 1
-	self.char = 0
+	self.col = 0
 }
 
-func (self *Lexer) Tokenize() ([]t.Token, error) {
-	tokens := make([]t.Token, 0)
+func (self *Lexer) Tokenize() ([]token.Token, error) {
+	tokens := make([]token.Token, 0)
 	buffer := make([]byte, 0)
 
 	wrapper := func(err error) error {
-		return fmt.Errorf("error encountered at line %v:%v: %w", self.line, self.char, err)
+		return fmt.Errorf("error encountered at line %v:%v: %w", self.line, self.col, err)
 	}
 
-	flush := func(kind int) {
-		tokens = append(tokens, t.Token{
-			Kind: kind,
-			Data: buffer,
-		})
+	flush := func(kind, line, col int) {
+
+		value := string(buffer)
+		t := token.New(value, kind, line, col)
+
+		tokens = append(tokens, t)
 		buffer = nil
 	}
 
-	read := func(characters []byte, kind int) {
+	read := func(characters []byte) {
 		for {
 			c, ok := self.peek()
 			if !ok {
@@ -111,16 +103,9 @@ func (self *Lexer) Tokenize() ([]t.Token, error) {
 
 			buffer = append(buffer, c)
 		}
-
-		if slices.Contains(keywords, string(buffer)) {
-			flush(t.Keyword)
-			return
-		}
-
-		flush(kind)
 	}
 
-	delimiter := func(kind int, terminal byte) {
+	delimiter := func(terminal byte) {
 		for {
 			c, ok := self.consume()
 			if !ok {
@@ -133,8 +118,6 @@ func (self *Lexer) Tokenize() ([]t.Token, error) {
 
 			buffer = append(buffer, c)
 		}
-
-		flush(kind)
 	}
 
 	for {
@@ -143,13 +126,17 @@ func (self *Lexer) Tokenize() ([]t.Token, error) {
 			break
 		}
 
+		line := self.line
+		col := self.col
+
 		if slices.Contains(whitespace, c) {
 			continue
 		}
 
 		if c == newline {
+
+			flush(token.EOL, self.line, self.col)
 			self.advance()
-			tokens = append(tokens, t.Single(t.EOL))
 
 			continue
 		}
@@ -157,32 +144,47 @@ func (self *Lexer) Tokenize() ([]t.Token, error) {
 		if slices.Contains(identifierStart, c) {
 
 			buffer = append(buffer, c)
-			read(identifier, t.Identifier)
+			read(identifier)
+
+			value := string(buffer)
+
+			t, ok := token.Keyword(value, line, col)
+			if ok {
+				tokens = append(tokens, t)
+				buffer = nil
+				continue
+			}
+
+			t = token.New(value, token.Identifier, line, col)
+			tokens = append(tokens, t)
+			buffer = nil
 
 			continue
 		}
 
 		if slices.Contains(operators, c) {
 
-			k, ok := t.IdentifySingle(c)
+			t, ok := token.Identify(c, self.line, self.col)
 			if !ok {
 				return nil, wrapper(ErrUnknownCharacter)
 			}
 
-			next, ok := self.peek()
+			n, ok := self.peek()
 			if !ok {
 				break
 			}
 
-			kNext, ok := t.IdentifySingle(next)
-			if kNext == t.Equal && ok {
+			kNext, ok := token.Identify(n, self.line, self.col)
+			if ok && kNext.Type == token.Equal {
 
-				k, ok := t.IdentifyAugmented(k)
+				t, ok := token.Augmented(t.Type, self.line, self.col)
 				if !ok {
 					return nil, wrapper(ErrUnknownToken)
 				}
 
-				tokens = append(tokens, t.Single(k))
+				fmt.Println("Augmented", t)
+
+				tokens = append(tokens, t)
 
 				_, ok = self.consume()
 				if !ok {
@@ -192,41 +194,51 @@ func (self *Lexer) Tokenize() ([]t.Token, error) {
 				continue
 			}
 
-			tokens = append(tokens, t.Single(k))
+			tokens = append(tokens, t)
 			continue
 		}
 
 		if slices.Contains(punctuators, c) {
 
-			k, ok := t.IdentifySingle(c)
+			t, ok := token.Identify(c, self.line, self.col)
 			if !ok {
 				return nil, wrapper(ErrUnknownCharacter)
 			}
 
-			tokens = append(tokens, t.Single(k))
+			tokens = append(tokens, t)
 			continue
 		}
 
 		if slices.Contains(decimal, c) {
+
 			buffer = append(buffer, c)
-			read(decimal, t.IntConstant)
+			read(decimal)
+
+			flush(token.LiteralInt, line, col)
 
 			continue
 		}
 
 		if c == stringDelimiter {
-			delimiter(t.StrConstant, stringDelimiter)
+
+			delimiter(stringDelimiter)
+			flush(token.LiteralStr, line, col)
+
 			continue
 		}
 
 		if c == charDelimiter {
-			delimiter(t.ChrConstant, charDelimiter)
+
+			delimiter(charDelimiter)
+			flush(token.LiteralChar, line, col)
+
 			continue
 		}
 
 		return nil, wrapper(ErrUnknownCharacter)
 	}
 
-	tokens = append(tokens, t.Single(t.EOF))
+	flush(token.EOL, self.line, self.col)
+	flush(token.EOF, self.line, self.col)
 	return tokens, nil
 }

@@ -5,57 +5,55 @@ import (
 	"language/module/emit"
 	"language/module/gen"
 	"language/module/lexer"
-	"language/module/node"
 	"language/module/parse"
-	"language/module/token"
 	"os"
 )
 
-func polishNotation(node *node.Node) string {
-	if node.Token.Kind != token.IntConstant {
+/*
+func polishNotation(node *ast.Node) string {
 
-		var op string
-
-		switch node.Token.Kind {
-		case token.Add:
-			op = "+"
-		case token.Subtract:
-			op = "-"
-		case token.Multiply:
-			op = "*"
-		case token.Divide:
-			op = "/"
-		case token.Modulus:
-			op = "%"
-		case token.LessThan:
-			op = "<"
-		case token.GreaterThan:
-			op = ">"
-		case token.LessOrEqual:
-			op = "<="
-		case token.GreaterOrEqual:
-			op = ">="
-		default:
-			op = "?"
-		}
-
-		var left, right string
-
-		if node.Left != nil {
-			left = polishNotation(node.Left)
-		}
-		if node.Right != nil {
-			right = polishNotation(node.Right)
-		}
-
-		return fmt.Sprintf("(%v %v %v)", op, left, right)
+	if node.Type == ast.LiteralInt {
+		return strconv.Itoa(node.Value)
 	}
 
-	return string(node.Token.Data)
-}
+	if node.Type == ast.Identifier {
+		return strconv.Itoa(node.Value)
+	}
+
+	var op string
+
+	switch node.Type {
+	case ast.Add:
+		op = "+"
+	case ast.Subtract:
+		op = "-"
+	case ast.Multiply:
+		op = "*"
+	case ast.Divide:
+		op = "/"
+	case ast.Modulus:
+		op = "%"
+	case ast.Equal:
+		op = "="
+	default:
+		op = "?"
+	}
+
+	var left, right string
+
+	if node.Left != nil {
+		left = polishNotation(node.Left)
+	}
+	if node.Right != nil {
+		right = polishNotation(node.Right)
+	}
+
+	return fmt.Sprintf("(%v %v %v)", op, left, right)
+
+}*/
 
 func main() {
-	data, err := os.ReadFile("tests/exp.v")
+	data, err := os.ReadFile("tests/length.v")
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -69,21 +67,27 @@ func main() {
 	}
 
 	for _, t := range tokens {
-		t.Debug()
+		fmt.Println(t)
 	}
 
 	parserObject := parse.New(tokens)
-	n := parserObject.ParseExpression(0)
-
-	p := polishNotation(n)
-	fmt.Println(p)
-
-	genISA := gen.NewVoran()
-	emit := emit.New(genISA)
-
-	_, err = emit.EmitExpression(n)
+	n, err := parserObject.ParseStatements()
 	if err != nil {
 		fmt.Println(err)
+		return
+	}
+	/*p := polishNotation(n)
+	fmt.Println(p)*/
+
+	genISA := gen.NewVoran()
+	emit := emit.New(genISA, parserObject.Symbols)
+
+	fmt.Println(n)
+
+	err = emit.EmitStatement(n)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
 
 	f, err := os.Create("a.S")

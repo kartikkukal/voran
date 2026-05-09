@@ -2,131 +2,194 @@ package emit
 
 import (
 	"errors"
+	"language/module/ast"
 	"language/module/gen"
-	n "language/module/node"
-	t "language/module/token"
 )
 
 var (
 	ErrNoValue         = errors.New("terminal node has no value")
 	ErrNoFreeRegisters = errors.New("no free registers")
+	ErrUnknownAST      = errors.New("unknown AST node encountered")
 )
 
 type Emit struct {
+	symbols []string
 	gen.Gen
 }
 
-func New(generator gen.Gen) Emit {
+func New(generator gen.Gen, symbols []string) Emit {
 	return Emit{
-		Gen: generator,
+		symbols: symbols,
+		Gen:     generator,
 	}
 }
 
-func (self *Emit) EmitExpression(master *n.Node) (string, error) {
+func (self *Emit) EmitExpression(master *ast.Node, register string) (string, error) {
 
-	if master.IsTerminal() {
-		r, ok := self.AllocateRegister()
-		if !ok {
-			return "", ErrNoFreeRegisters
-		}
-
-		n, ok := master.Value()
-		if !ok {
-			return "", ErrNoValue
-		}
-
-		self.Load(r, n)
+	if master.Type == ast.LiteralInt {
+		r := self.LoadValue(master.Value)
 		return r, nil
 	}
 
-	left, err := self.EmitExpression(master.Left)
+	if master.Type == ast.Identifier {
+		if master.RValue {
+			r := self.LoadInt(self.symbols[master.Value])
+			return r, nil
+		} else {
+			self.StoreInt(register, self.symbols[master.Value])
+			return register, nil
+		}
+	}
+
+	left, err := self.EmitExpression(master.Left, "")
 	if err != nil {
 		return "", err
 	}
 
-	right, err := self.EmitExpression(master.Right)
+	right, err := self.EmitExpression(master.Right, left)
 	if err != nil {
 		return "", err
 	}
 
-	switch master.Token.Kind {
-	case t.Add:
+	switch master.Type {
+	case ast.Equal:
+
+		return right, nil
+
+	case ast.Add:
 
 		self.Add(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.Subtract:
+	case ast.Subtract:
 
 		self.Subtract(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.Multiply:
+	case ast.Multiply:
 
 		self.Multiply(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.Divide:
+	case ast.Divide:
 
 		self.Divide(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.Modulus:
+	case ast.Modulus:
 
 		self.Modulus(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.Equality:
+	case ast.IsEqual:
 
 		self.Equality(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.NotEqual:
+	case ast.NotEqual:
 
 		self.NotEqual(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.LessThan:
+	case ast.LessThan:
 
 		self.LessThan(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.GreaterThan:
+	case ast.GreaterThan:
 
 		self.GreaterThan(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.LessOrEqual:
+	case ast.LessOrEqual:
 
 		self.LessOrEqual(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 
-	case t.GreaterOrEqual:
+	case ast.GreaterOrEqual:
 
 		self.GreaterOrEqual(left, right)
-		self.DeallocateRegister(right)
-
 		return left, nil
 	}
 
-	panic("unknown operator")
+	return "", ErrUnknownAST
+}
+
+func (self *Emit) EmitStatement(master *ast.Node) error {
+
+	switch master.Type {
+	case ast.DeclareInt:
+
+		self.DeclareInt(self.symbols[master.Value])
+		return nil
+
+	case ast.IfElse:
+
+		end := self.CreateLabel()
+
+		r, err := self.EmitExpression(master.Left, "")
+		if err != nil {
+			return err
+		}
+
+		self.Compare(r)
+		self.BranchNotEqual(end)
+
+		err = self.EmitStatement(master.Right)
+		if err != nil {
+			return err
+		}
+
+		self.Jump(end)
+		self.SwitchLabel(end)
+
+	case ast.While:
+
+		start := self.CreateLabel()
+		end := self.CreateLabel()
+
+		self.Jump(start)
+		self.SwitchLabel(start)
+
+		r, err := self.EmitExpression(master.Left, "")
+		if err != nil {
+			return err
+		}
+
+		self.Compare(r)
+		self.BranchNotEqual(end)
+
+		err = self.EmitStatement(master.Right)
+		if err != nil {
+			return err
+		}
+
+		self.Jump(start)
+		self.SwitchLabel(end)
+
+	case ast.Glue:
+
+		if master.Left != nil {
+			err := self.EmitStatement(master.Left)
+			if err != nil {
+				return err
+			}
+		}
+
+		if master.Right != nil {
+			err := self.EmitStatement(master.Right)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+
+	default:
+		_, err := self.EmitExpression(master, "")
+		self.DeallocateAllRegisters()
+		return err
+	}
+
+	return nil
 }

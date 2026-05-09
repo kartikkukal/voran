@@ -1,16 +1,17 @@
-int length(char* string) {
-    int i = 0;
-    char c = string[i];
+i32 number
+number = 27
 
-    while (c != '\0') {
-        i += 1;
-        c = string[i];
+i32 max
+max = 0
+
+while number != 1 {
+    if number % 2 != 0 {
+        number = number * 3 + 1
     }
-
-    return i;
-}
-
-int main() {
-    char[] hello = "Unknown String!";
-    print(length(hello));
+    if max < number {
+        max = number
+    }
+    if number % 2 == 0 {
+        number = number / 2
+    }
 }

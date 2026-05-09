@@ -3,18 +3,31 @@ package token
 import "fmt"
 
 const (
-	Keyword = iota
-	Identifier
-	StrConstant
-	ChrConstant
-	IntConstant
+	// Keywords
+	I8 = iota
+	I16
+	I32
+	I64
+	U8
+	U16
+	U32
+	U64
 
-	ParenL
-	ParenR
-	CurlyL
-	CurlyR
-	SquareL
-	SquareR
+	If
+	Else
+	ElseIf
+
+	While
+
+	Inter
+
+	Identifier
+
+	LiteralStr
+	LiteralChar
+	LiteralInt
+
+	// Operators
 	Equal
 	Add
 	AddEqual
@@ -27,105 +40,184 @@ const (
 	Modulus
 	ModulusEqual
 	Not
+
+	IsEqual
+	NotEqual
 	LessThan
+	LessOrEqual
 	GreaterThan
+	GreaterOrEqual
+
+	// Punctuators
+	ParenL
+	ParenR
+	CurlyL
+	CurlyR
+	SquareL
+	SquareR
 	Semicolon
 	Colon
 	Comma
 	Period
-
-	Equality
-	NotEqual
-	LessOrEqual
-	GreaterOrEqual
 
 	EOL
 	EOF
 )
 
 type Token struct {
-	Kind int
-	Data []byte
+	Data string
+
+	Type int
+	line int
+	col  int
 }
 
-func Single(kind int) Token {
+func New(data string, t, line, col int) Token {
 	return Token{
-		Kind: kind,
-		Data: nil,
+		Data: data,
+		Type: t,
+		line: line,
+		col:  col,
 	}
 }
 
-func (self Token) Debug() {
-	fmt.Print(self.Kind)
-	fmt.Println(":", string(self.Data))
+func (self Token) Debug() string {
+	return fmt.Sprintf("At line %v, column %v", self.line, self.col)
 }
 
-func IdentifySingle(c byte) (int, bool) {
+func (self Token) Complete() string {
+	return fmt.Sprintf("Type: %v, Data: %v, Line: %v, Col: %v", self.Type, self.Data, self.line, self.col)
+}
+
+func Keyword(keyword string, line, col int) (Token, bool) {
+
+	var t int
+
+	switch keyword {
+	case "u8":
+		t = U8
+	case "u16":
+		t = U16
+	case "u32":
+		t = U32
+	case "u64":
+		t = U64
+	case "i8":
+		t = I8
+	case "i16":
+		t = I16
+	case "i32":
+		t = I32
+	case "i64":
+		t = I64
+	case "if":
+		t = If
+	case "else":
+		t = Else
+	case "while":
+		t = While
+	case "inter":
+		t = Inter
+	default:
+		return Token{}, false
+	}
+
+	return Token{
+		Data: "",
+
+		Type: t,
+		line: line,
+		col:  col,
+	}, true
+}
+
+func Identify(c byte, line, col int) (Token, bool) {
+
+	var t int
+
 	switch c {
 	case '(':
-		return ParenL, true
+		t = ParenL
 	case ')':
-		return ParenR, true
+		t = ParenR
 	case '{':
-		return CurlyL, true
+		t = CurlyL
 	case '}':
-		return CurlyR, true
+		t = CurlyR
 	case '[':
-		return SquareL, true
+		t = SquareL
 	case ']':
-		return SquareR, true
+		t = SquareR
 	case '=':
-		return Equal, true
+		t = Equal
 	case '+':
-		return Add, true
+		t = Add
 	case '-':
-		return Subtract, true
+		t = Subtract
 	case '*':
-		return Multiply, true
+		t = Multiply
 	case '/':
-		return Divide, true
+		t = Divide
 	case '%':
-		return Modulus, true
+		t = Modulus
 	case '!':
-		return Not, true
+		t = Not
 	case '<':
-		return LessThan, true
+		t = LessThan
 	case '>':
-		return GreaterThan, true
+		t = GreaterThan
 	case ';':
-		return Semicolon, true
+		t = Semicolon
 	case ':':
-		return Colon, true
+		t = Colon
 	case ',':
-		return Comma, true
+		t = Comma
 	case '.':
-		return Period, true
+		t = Period
 	default:
-		return 0, false
+		return Token{}, false
 	}
+
+	return Token{
+		Data: "",
+
+		Type: t,
+		line: line,
+		col:  col,
+	}, true
 }
 
-func IdentifyAugmented(kind int) (int, bool) {
-	switch kind {
+func Augmented(c, line, col int) (Token, bool) {
+	var t int
+
+	switch c {
 	case Equal:
-		return Equality, true
+		t = IsEqual
 	case LessThan:
-		return LessOrEqual, true
+		t = LessOrEqual
 	case GreaterThan:
-		return GreaterOrEqual, true
+		t = GreaterOrEqual
 	case Not:
-		return NotEqual, true
+		t = NotEqual
 	case Add:
-		return AddEqual, true
+		t = AddEqual
 	case Subtract:
-		return SubtractEqual, true
+		t = SubtractEqual
 	case Multiply:
-		return MultiplyEqual, true
+		t = MultiplyEqual
 	case Divide:
-		return DivideEqual, true
+		t = DivideEqual
 	case Modulus:
-		return ModulusEqual, true
+		t = ModulusEqual
 	default:
-		return 0, false
+		return Token{}, false
 	}
+
+	return Token{
+		Data: "",
+
+		Type: t,
+		line: line,
+		col:  col,
+	}, true
 }
