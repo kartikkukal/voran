@@ -1,88 +1,79 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"language/module/emit"
 	"language/module/gen"
 	"language/module/lexer"
 	"language/module/parse"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
-/*
-func polishNotation(node *ast.Node) string {
+var (
+	sourcePath string
+	outputPath string
 
-	if node.Type == ast.LiteralInt {
-		return strconv.Itoa(node.Value)
-	}
+	tokensDebug   bool
+	parserDebug   bool
+	assemblyDebug bool
+)
 
-	if node.Type == ast.Identifier {
-		return strconv.Itoa(node.Value)
-	}
+func init() {
+	flag.StringVar(&sourcePath, "src", "", "path of the source file")
+	flag.StringVar(&outputPath, "output", "", "path of the output file")
 
-	var op string
-
-	switch node.Type {
-	case ast.Add:
-		op = "+"
-	case ast.Subtract:
-		op = "-"
-	case ast.Multiply:
-		op = "*"
-	case ast.Divide:
-		op = "/"
-	case ast.Modulus:
-		op = "%"
-	case ast.Equal:
-		op = "="
-	default:
-		op = "?"
-	}
-
-	var left, right string
-
-	if node.Left != nil {
-		left = polishNotation(node.Left)
-	}
-	if node.Right != nil {
-		right = polishNotation(node.Right)
-	}
-
-	return fmt.Sprintf("(%v %v %v)", op, left, right)
-
-}*/
+	flag.BoolVar(&tokensDebug, "debug-tokens", false, "print tokens")
+	flag.BoolVar(&parserDebug, "debug-parser", false, "print parser tree")
+	flag.BoolVar(&assemblyDebug, "debug-assembly", false, "print assembly output")
+}
 
 func main() {
-	data, err := os.ReadFile("tests/length.v")
+
+	flag.Parse()
+
+	defaultPath := strings.TrimSuffix(sourcePath, filepath.Ext(sourcePath))
+
+	if outputPath == "" {
+		outputPath = defaultPath
+	}
+
+	data, err := os.ReadFile(sourcePath)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
 	lexerObject := lexer.New(data)
+
 	tokens, err := lexerObject.Tokenize()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
-	for _, t := range tokens {
-		fmt.Println(t)
+	if tokensDebug {
+		for _, t := range tokens {
+			fmt.Println(t.Debug())
+		}
 	}
 
 	parserObject := parse.New(tokens)
+
 	n, err := parserObject.ParseStatements()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return
 	}
-	/*p := polishNotation(n)
-	fmt.Println(p)*/
+
+	if parserDebug {
+		fmt.Println(n.Debug())
+	}
 
 	genISA := gen.NewVoran()
 	emit := emit.New(genISA, parserObject.Symbols)
-
-	fmt.Println(n)
 
 	err = emit.EmitStatement(n)
 	if err != nil {
@@ -99,7 +90,10 @@ func main() {
 	defer f.Close()
 
 	for _, l := range genISA.GetInstructions() {
-		fmt.Println(l)
+
+		if assemblyDebug {
+			fmt.Println(l)
+		}
 
 		_, err := f.WriteString(l + "\n")
 

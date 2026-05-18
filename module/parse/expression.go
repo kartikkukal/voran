@@ -9,27 +9,10 @@ import (
 )
 
 var (
-	operators = [...]int{
-		token.Add,
-		token.Subtract,
-		token.Multiply,
-		token.Divide,
-		token.Modulus,
-		token.IsEqual,
-		token.NotEqual,
-		token.LessThan,
-		token.GreaterThan,
-		token.LessOrEqual,
-		token.GreaterOrEqual,
-		token.Equal,
-		token.ParenL,
-		token.ParenR,
-	}
-
-	precedenceTable = map[int]int{
-		token.Equal:          -1,
+	precedenceTable = map[token.Value]int{
+		token.Equals:         -1,
 		token.NotEqual:       2,
-		token.IsEqual:        2,
+		token.Equal:          2,
 		token.LessThan:       2,
 		token.LessOrEqual:    2,
 		token.GreaterThan:    2,
@@ -47,7 +30,7 @@ var (
 )
 
 func bindingPower(token token.Token) (int, int) {
-	power, ok := precedenceTable[token.Type]
+	power, ok := precedenceTable[token.Value]
 	if !ok {
 		return 0, 0
 	}
@@ -59,27 +42,8 @@ func bindingPower(token token.Token) (int, int) {
 	}
 }
 
-func (self *Parser) matchOperator() (token.Token, bool) {
-
-	t, ok := self.consume()
-	if !ok {
-		return token.Token{}, false
-	}
-
-	found := false
-
-	for _, value := range operators {
-		if value == t.Type {
-			found = true
-			break
-		}
-	}
-
-	return t, found
-}
-
-func astNodeType(t int) (int, bool) {
-	var node int
+func astNodeType(t token.Value) (ast.Type, bool) {
+	var node ast.Type
 
 	switch t {
 	case token.Add:
@@ -92,8 +56,8 @@ func astNodeType(t int) (int, bool) {
 		node = ast.Divide
 	case token.Modulus:
 		node = ast.Modulus
-	case token.IsEqual:
-		node = ast.IsEqual
+	case token.Equal:
+		node = ast.Equal
 	case token.NotEqual:
 		node = ast.NotEqual
 	case token.LessThan:
@@ -104,10 +68,10 @@ func astNodeType(t int) (int, bool) {
 		node = ast.GreaterThan
 	case token.GreaterOrEqual:
 		node = ast.GreaterOrEqual
-	case token.Equal:
-		node = ast.Equal
+	case token.Equals:
+		node = ast.Equals
 	default:
-		return 0, false
+		return ast.Type(""), false
 	}
 
 	return node, true
@@ -134,7 +98,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 		return lhs, nil
 	}
 
-	if t.Type == token.ParenL {
+	if t.Value == token.ParenL {
 		var err error
 
 		lhs, err = self.ParseExpression(0)
@@ -143,17 +107,17 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 		}
 	}
 
-	if t.Type == token.LiteralInt {
-		value, err := strconv.ParseUint(t.Data, 10, 64)
+	if t.Type == token.Integer {
+		value, err := strconv.ParseUint(string(t.Value), 10, 64)
 		if err != nil {
 			return nil, err
 		}
 
-		lhs = ast.NewWithValue(ast.LiteralInt, int(value))
+		lhs = ast.NewWithValue(ast.Integer, int(value))
 	}
 
 	if t.Type == token.Identifier {
-		index, ok := self.findSymbol(t.Data)
+		index, ok := self.findSymbol(string(t.Value))
 		if !ok {
 			return nil, ErrUndeclaredIdentifier
 		}
@@ -162,16 +126,16 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 	}
 
 	for {
-		t, ok = self.matchOperator()
+		t, ok = self.matchType(token.Operator)
 		if !ok {
-			if t.Type == token.EOL || t.Type == token.CurlyL {
+			if t.Type == token.EOL || t.Value == token.CurlyL {
 				return lhs, nil
 			}
 
 			return nil, ErrExpectedOperator
 		}
 
-		if t.Type == token.ParenR {
+		if t.Value == token.ParenR {
 			return lhs, nil
 		}
 
@@ -188,14 +152,14 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 		self.index--
 
-		node, ok := astNodeType(t.Type)
+		node, ok := astNodeType(t.Value)
 		if !ok {
 			return nil, ErrUnidentifiedOperator
 		}
 
 		op := ast.NewWithChildren(node, lhs, rhs)
 
-		if node != ast.Equal {
+		if node != ast.Equals {
 			op.RValue = true
 
 		} else {

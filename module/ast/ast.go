@@ -1,37 +1,38 @@
 package ast
 
+import (
+	"fmt"
+)
+
+type Type string
+
 const (
-	Add = iota
-	Subtract
-	Multiply
-	Divide
-	Modulus
+	Add            Type = "+"
+	Subtract       Type = "-"
+	Multiply       Type = "*"
+	Divide         Type = "/"
+	Modulus        Type = "%"
+	Equals         Type = "="
+	Equal          Type = "=="
+	NotEqual       Type = "!="
+	LessThan       Type = "<"
+	LessOrEqual    Type = "<="
+	GreaterThan    Type = ">"
+	GreaterOrEqual Type = ">="
 
-	LessThan
-	LessOrEqual
-	GreaterThan
-	GreaterOrEqual
+	Glue      Type = "glue"
+	Declare   Type = "declare"
+	If        Type = "if"
+	While     Type = "while"
+	Interrupt Type = "interrupt"
 
-	Glue
-	IfElse
-	While
-
-	Inter
-
-	IsEqual
-	NotEqual
-
-	DeclareInt
-
-	LiteralInt
-	LiteralStr
-	Identifier
-
-	Equal
+	Integer    Type = "number"
+	String     Type = "string"
+	Identifier Type = "identifier"
 )
 
 type Node struct {
-	Type  int
+	Type  Type
 	Value int
 
 	RValue bool
@@ -40,7 +41,7 @@ type Node struct {
 	Right *Node
 }
 
-func New(t int) *Node {
+func New(t Type) *Node {
 	return &Node{
 		Type:   t,
 		Value:  0,
@@ -50,7 +51,7 @@ func New(t int) *Node {
 	}
 }
 
-func NewWithValue(t, value int) *Node {
+func NewWithValue(t Type, value int) *Node {
 	return &Node{
 		Type:   t,
 		Value:  value,
@@ -60,7 +61,7 @@ func NewWithValue(t, value int) *Node {
 	}
 }
 
-func NewWithChildren(t int, left, right *Node) *Node {
+func NewWithChildren(t Type, left, right *Node) *Node {
 	return &Node{
 		Type:  t,
 		Value: 0,
@@ -81,4 +82,37 @@ func (self *Node) Insert(node *Node) bool {
 	}
 
 	return false
+}
+
+func (self *Node) debug(indent string, last bool, middle bool) string {
+
+	var output string
+
+	if middle {
+		output += fmt.Sprintf("%v├─ %v\n", indent, self.Type)
+	} else {
+		output += fmt.Sprintf("%v└─ %v\n", indent, self.Type)
+
+	}
+
+	if last {
+		indent += "   "
+	} else {
+		indent += "│  "
+	}
+
+	if self.Left != nil {
+		left := self.Left.debug(indent, self.Right == nil, self.Right != nil)
+		output += fmt.Sprintf("%v", left)
+	}
+	if self.Right != nil {
+		right := self.Right.debug(indent, self.Left != nil, self.Left == nil)
+		output += fmt.Sprintf("%v", right)
+	}
+
+	return output
+}
+
+func (self *Node) Debug() string {
+	return self.debug("", true, false)
 }

@@ -26,7 +26,7 @@ func New(generator gen.Gen, symbols []string) Emit {
 
 func (self *Emit) EmitExpression(master *ast.Node, register string) (string, error) {
 
-	if master.Type == ast.LiteralInt {
+	if master.Type == ast.Integer {
 		r := self.LoadValue(master.Value)
 		return r, nil
 	}
@@ -52,7 +52,7 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 	}
 
 	switch master.Type {
-	case ast.Equal:
+	case ast.Equals:
 
 		return right, nil
 
@@ -81,7 +81,7 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 		self.Modulus(left, right)
 		return left, nil
 
-	case ast.IsEqual:
+	case ast.Equal:
 
 		self.Equality(left, right)
 		return left, nil
@@ -117,15 +117,17 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 
 func (self *Emit) EmitStatement(master *ast.Node) error {
 
+	self.DeallocateAllRegisters()
+
 	switch master.Type {
-	case ast.DeclareInt:
+	case ast.Declare:
 
 		self.DeclareInt(self.symbols[master.Value])
 		return nil
 
-	case ast.IfElse:
+	case ast.If:
 
-		end := self.CreateLabel()
+		label_1 := self.CreateLabel()
 
 		r, err := self.EmitExpression(master.Left, "")
 		if err != nil {
@@ -133,15 +135,34 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 		}
 
 		self.Compare(r)
-		self.BranchNotEqual(end)
+		self.BranchNotEqual(label_1)
 
-		err = self.EmitStatement(master.Right)
+		err = self.EmitStatement(master.Right.Left)
 		if err != nil {
 			return err
 		}
 
-		self.Jump(end)
-		self.SwitchLabel(end)
+		if master.Right.Right == nil {
+			self.Jump(label_1)
+			self.SwitchLabel(label_1)
+
+			return nil
+		}
+
+		label_2 := self.CreateLabel()
+
+		self.Jump(label_2)
+		self.SwitchLabel(label_1)
+
+		err = self.EmitStatement(master.Right.Right)
+		if err != nil {
+			return err
+		}
+
+		self.Jump(label_2)
+		self.SwitchLabel(label_2)
+
+		return nil
 
 	case ast.While:
 
@@ -167,6 +188,8 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 		self.Jump(start)
 		self.SwitchLabel(end)
 
+		return nil
+
 	case ast.Glue:
 
 		if master.Left != nil {
@@ -185,11 +208,13 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 
 		return nil
 
+	case ast.Interrupt:
+
+		self.Interrupt(master.Value)
+		return nil
+
 	default:
 		_, err := self.EmitExpression(master, "")
-		self.DeallocateAllRegisters()
 		return err
 	}
-
-	return nil
 }

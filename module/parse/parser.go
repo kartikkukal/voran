@@ -2,7 +2,6 @@ package parse
 
 import (
 	"errors"
-	"fmt"
 	"language/module/token"
 )
 
@@ -40,16 +39,27 @@ func (self *Parser) consume() (token.Token, bool) {
 	return self.peek()
 }
 
-func (self *Parser) matchToken(kind int) (token.Token, bool) {
+func (self *Parser) matchToken(data token.Value) (token.Token, bool) {
+	t, ok := self.consume()
+	if !ok {
+		return token.Token{}, false
+	}
+
+	if t.Value != data {
+		return t, false
+	}
+
+	return t, true
+}
+
+func (self *Parser) matchType(kind token.Type) (token.Token, bool) {
 	t, ok := self.consume()
 	if !ok {
 		return token.Token{}, false
 	}
 
 	if t.Type != kind {
-		fmt.Println("what we found:", t.Type, "expected:", kind)
-		fmt.Println(t.Debug())
-		return token.Token{}, false
+		return t, false
 	}
 
 	return t, true

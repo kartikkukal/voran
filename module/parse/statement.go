@@ -2,25 +2,12 @@ package parse
 
 import (
 	"errors"
-	"fmt"
 	"language/module/ast"
 	"language/module/token"
+	"strconv"
 )
 
 var (
-	keywords = [...]int{
-		token.I8,
-		token.I16,
-		token.I32,
-		token.I64,
-		token.U8,
-		token.U16,
-		token.U32,
-		token.U64,
-		token.If,
-		token.While,
-	}
-
 	ErrUnidentifiedKeyword = errors.New("unidentified keyword")
 )
 
@@ -36,35 +23,27 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 		return nil, ErrExpectedToken
 	}
 
-	found := false
-
-	for _, value := range keywords {
-		if value == t.Type {
-			found = true
-			break
-		}
-	}
-	if found {
+	if t.Type == token.Keyword {
 		self.index += 1
 	} else {
 		return self.ParseExpression(0)
 	}
 
-	switch t.Type {
+	switch t.Value {
 	case token.I32:
 
-		identifier, ok := self.matchToken(token.Identifier)
+		identifier, ok := self.matchType(token.Identifier)
 		if !ok {
 			return nil, ErrExpectedToken
 		}
 
-		_, ok = self.matchToken(token.EOL)
+		_, ok = self.matchType(token.EOL)
 		if !ok {
 			return nil, ErrExpectedToken
 		}
 
-		node := ast.New(ast.DeclareInt)
-		index := self.registerSymbol(identifier.Data)
+		node := ast.New(ast.Declare)
+		index := self.registerSymbol(string(identifier.Value))
 
 		node.Value = index
 
@@ -82,14 +61,33 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 			return nil, err
 		}
 
-		t, _ := self.peek()
-
-		fmt.Println("Found if", t.Debug())
-
-		node := ast.New(ast.IfElse)
-
+		node := ast.New(ast.If)
 		node.Left = condition
-		node.Right = first
+		node.Right = ast.New(ast.Glue)
+
+		node.Right.Insert(first)
+
+		t, ok := self.peek()
+		if ok && t.Value == token.Else {
+
+			self.index++
+
+			t, ok := self.consume()
+			if !ok {
+				return nil, ErrExpectedToken
+			}
+
+			if t.Value != token.CurlyL {
+				return nil, ErrExpectedToken
+			}
+
+			second, err := self.ParseStatements()
+			if err != nil {
+				return nil, err
+			}
+
+			node.Right.Insert(second)
+		}
 
 		return node, nil
 
@@ -112,9 +110,28 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 
 		return node, nil
 
-	case token.Inter:
+	case token.Interrupt:
 
-		return ast.New(ast.Inter), nil
+		value, ok := self.matchType(token.Integer)
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		_, ok = self.matchType(token.EOL)
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		node := ast.New(ast.Interrupt)
+
+		interrupt, err := strconv.ParseUint(string(value.Value), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Value = int(interrupt)
+
+		return node, nil
 	}
 
 	return nil, ErrUnidentifiedKeyword
@@ -133,7 +150,7 @@ func (self *Parser) ParseStatements() (*ast.Node, error) {
 		}
 
 		if t.Type == token.EOF ||
-			t.Type == token.CurlyR {
+			t.Value == token.CurlyR {
 			self.index++
 			break
 		}
