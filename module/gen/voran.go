@@ -1,27 +1,37 @@
 package gen
 
 import (
+	"errors"
 	"fmt"
 	"slices"
+)
+
+var (
+	ErrRegisterSpilled = errors.New("register spillover not implemented yet")
 )
 
 type Voran struct {
 	registers []string
 	size      []string
-	variables []string
 	labels    map[string][]string
+	stack     int
 
-	currentLabel string
-	labelCounter int
+	currentFunction string
+	currentLabel    string
+	labelCounter    int
 }
 
 func NewVoran() *Voran {
 	return &Voran{
-		registers:    []string{"12", "11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0"},
-		size:         []string{"b", "w", "d", "q"},
-		labels:       make(map[string][]string),
-		currentLabel: "main",
-		labelCounter: 0,
+		registers: []string{"12", "11", "10", "9", "8", "7", "6", "5", "4", "3", "2", "1", "0"},
+		size:      []string{"b", "w", "d", "q"},
+
+		labels: make(map[string][]string),
+
+		currentFunction: "main",
+		currentLabel:    "main",
+
+		stack: 0,
 	}
 }
 
@@ -58,6 +68,7 @@ func (self *Voran) DeallocateRegister(r string) bool {
 	}
 
 	self.registers = append(self.registers, r[1:])
+
 	return true
 }
 
@@ -66,7 +77,7 @@ func (self *Voran) DeallocateAllRegisters() {
 }
 
 func (self *Voran) CreateLabel() string {
-	name := fmt.Sprintf("L%v", self.labelCounter)
+	name := fmt.Sprintf("%v_%v", self.currentFunction, self.labelCounter)
 	self.labelCounter++
 
 	self.labels[name] = make([]string, 0)
@@ -75,27 +86,17 @@ func (self *Voran) CreateLabel() string {
 }
 
 func (self *Voran) SwitchLabel(name string) {
+
+	if name == "main" {
+		self.currentFunction = "main"
+	}
+
+	_, ok := self.labels[name]
+	if !ok {
+		self.labels[name] = make([]string, 0)
+	}
+
 	self.currentLabel = name
-}
-
-func (self *Voran) LoadValue(v int) string {
-	r, ok := self.AllocateRegister(3)
-	if !ok {
-		return ""
-	}
-
-	self.append("ld %v, 0x%x", r, v)
-	return r
-}
-
-func (self *Voran) LoadInt(name string) string {
-	r, ok := self.AllocateRegister(3)
-	if !ok {
-		return ""
-	}
-
-	self.append("ld %v, [%v]", r, name)
-	return r
 }
 
 func (self *Voran) Add(r1 string, r2 string) {
@@ -123,44 +124,43 @@ func (self *Voran) Modulus(r1 string, r2 string) {
 	self.DeallocateRegister(r2)
 }
 
-func (self *Voran) Equality(r1 string, r2 string) {
+func (self *Voran) compareLoad(r1 string, r2 string) {
 	self.append("ucmp %v, %v", r1, r2)
 	self.append("ld %v, 0", r1)
+}
+
+func (self *Voran) Equality(r1 string, r2 string) {
+	self.compareLoad(r1, r2)
 	self.append("seteq %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
 
 func (self *Voran) NotEqual(r1 string, r2 string) {
-	self.append("ucmp %v, %v", r1, r2)
-	self.append("ld %v, 0", r1)
+	self.compareLoad(r1, r2)
 	self.append("setne %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
 
 func (self *Voran) LessThan(r1 string, r2 string) {
-	self.append("ucmp %v, %v", r1, r2)
-	self.append("ld %v, 0", r1)
+	self.compareLoad(r1, r2)
 	self.append("setlt %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
 
 func (self *Voran) GreaterThan(r1 string, r2 string) {
-	self.append("ucmp %v, %v", r1, r2)
-	self.append("ld %v, 0", r1)
+	self.compareLoad(r1, r2)
 	self.append("setgt %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
 
 func (self *Voran) LessOrEqual(r1 string, r2 string) {
-	self.append("ucmp %v, %v", r1, r2)
-	self.append("ld %v, 0", r1)
+	self.compareLoad(r1, r2)
 	self.append("setle %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
 
 func (self *Voran) GreaterOrEqual(r1 string, r2 string) {
-	self.append("ucmp %v, %v", r1, r2)
-	self.append("ld %v, 0", r1)
+	self.compareLoad(r1, r2)
 	self.append("setge %v, 1", r1)
 	self.DeallocateRegister(r2)
 }
@@ -181,15 +181,103 @@ func (self *Voran) Jump(name string) {
 	self.append("jmp %v", name)
 }
 
-func (self *Voran) DeclareInt(name string) {
-	self.variables = append(self.variables, name)
+// Use adequate register sizes
+func (self *Voran) LoadLiteral(v int) string {
+	r, ok := self.AllocateRegister(3)
+	if !ok {
+		return ""
+	}
+
+	self.append("ld %v, 0x%x", r, v)
+	return r
 }
 
-func (self *Voran) StoreInt(r, name string) {
-	self.append("str %v, [%v]", r, name)
-	self.DeallocateRegister(r)
+func (self *Voran) DeclareLocal(size int) int {
+	index := self.stack
+	self.stack += 8
+
+	return index
 }
 
+func (self *Voran) LoadLocal(index, size int) string {
+	r, ok := self.AllocateRegister(3)
+	if !ok {
+		return ""
+	}
+	self.append("ld %v, [q13+%v]", r, index)
+	return r
+}
+
+func (self *Voran) StoreLocal(r string, index int) {
+	self.append("str %v, [q13+%v]", r, index)
+}
+
+func (self *Voran) DeclareFunction(name string) {
+
+	self.labelCounter = 0
+	self.currentFunction = name
+
+	self.SwitchLabel(name)
+	self.append("str q13, [q14+8]")
+
+	self.stack = 16
+	self.append("mov q14, q13")
+}
+
+func (self *Voran) ReturnFunction() {
+
+	r, ok := self.AllocateRegister(3)
+	if !ok {
+		fmt.Println("errr")
+	}
+
+	self.append("ld %v, [q13+0]", r)
+	self.append("ld q13, [q13+8]")
+
+	self.append("jmp %v, 12", r)
+
+	self.stack = 0
+}
+
+func (self *Voran) push(r string) {
+	self.append("str %v, [q13+%v]", r, self.stack)
+	self.stack += 8
+}
+
+func (self *Voran) CallFunction(name string) {
+
+	self.append("mov q13, q14")
+	self.append("uadd q14, %v", self.stack)
+	self.append("str q15, [q14]")
+
+	self.Jump(name)
+}
+
+/*
+	func (self *Voran) DeclareInt(name string) {
+		self.symbols[name] = self.stack
+		self.stack += 8
+	}
+
+	func (self *Voran) LoadInt(name string) string {
+		r, ok := self.AllocateRegister(3)
+		if !ok {
+			return ""
+		}
+
+		location := self.symbols[name]
+
+		self.append("ld %v, [q13+%v]", r, location)
+		return r
+	}
+
+	func (self *Voran) StoreInt(r, name string) {
+		location := self.symbols[name]
+
+		self.append("str %v, [q13+%v]", r, location)
+		self.DeallocateRegister(r)
+	}
+*/
 func (self *Voran) Interrupt(i int) {
 	self.append("int %v", i)
 }
@@ -202,13 +290,18 @@ func (self Voran) GetInstructions() []string {
 	bss := []string{
 		"section .bss",
 	}
-
-	for _, v := range self.variables {
-		i := fmt.Sprintf("\t%v: res 8", v)
-		bss = append(bss, i)
-	}
-
+	/*
+		for _, v := range self.variables {
+			i := fmt.Sprintf("\t%v: res 8", v)
+			bss = append(bss, i)
+		}
+	*/
 	var instructions []string
+
+	stack_size := fmt.Sprintf("%%stack: %v", 1024)
+
+	instructions = append(instructions, stack_size)
+
 	instructions = append(instructions, bss...)
 
 	preamble := []string{

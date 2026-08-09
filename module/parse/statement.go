@@ -8,12 +8,195 @@ import (
 )
 
 var (
+	ErrInvalidParameters   = errors.New("invalid keyword in parameter list")
 	ErrUnidentifiedKeyword = errors.New("unidentified keyword")
 )
 
-func (self *Parser) registerSymbol(name string) int {
-	self.Symbols = append(self.Symbols, name)
-	return len(self.Symbols) - 1
+func (self *Parser) ParseParameters() (*ast.Node, error) {
+
+	master := ast.New(ast.Glue)
+	root := master
+
+	for {
+		t, ok := self.peek()
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		if t.Value == token.ParenR {
+			self.index++
+			return root, nil
+		}
+
+		node, err := self.ParseStatement()
+		if err != nil {
+			return nil, err
+		}
+
+		if node.Type != ast.Declare {
+			return nil, ErrInvalidParameters
+		}
+
+		ok = master.Insert(node)
+		if !ok {
+			swap := master.Right
+			master.Right = ast.New(ast.Glue)
+			master = master.Right
+
+			master.Insert(swap)
+			master.Insert(node)
+		}
+	}
+}
+
+func (self *Parser) ParseDeclaration() (*ast.Node, error) {
+
+	identifier, ok := self.matchType(token.Identifier)
+	if !ok {
+		return nil, ErrExpectedToken
+	}
+
+	index := self.registerSymbol(string(identifier.Value))
+
+	node := ast.New(ast.Declare)
+	node.Value = index
+
+	next, ok := self.consume()
+
+	if next.Type == token.EOL ||
+		next.Value == token.Comma {
+		return node, nil
+	}
+
+	if next.Value == token.ParenR {
+		self.index--
+		return node, nil
+	}
+
+	if next.Value == token.Equals {
+		self.index = self.index - 2
+
+		initializer, err := self.ParseExpression(0)
+		if err != nil {
+			return nil, err
+		}
+
+		node.Left = initializer
+
+		return node, nil
+	}
+
+	if next.Value != token.ParenL {
+		return nil, ErrExpectedToken
+	}
+
+	parameters, err := self.ParseParameters()
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := self.ParseStatements()
+	if err != nil {
+		return nil, err
+	}
+
+	node = ast.New(ast.Function)
+
+	node.Value = index
+	node.Left = parameters
+	node.Right = body
+
+	return node, nil
+}
+
+/*
+func (self *Parser) ParseFunction() (*ast.Node, error) {
+
+}
+*/
+func (self *Parser) ParseBranch() (*ast.Node, error) {
+
+	condition, err := self.ParseExpression(0)
+	if err != nil {
+		return nil, err
+	}
+
+	first, err := self.ParseStatements()
+	if err != nil {
+		return nil, err
+	}
+
+	node := ast.New(ast.If)
+	node.Left = condition
+	node.Right = ast.New(ast.Glue)
+
+	node.Right.Insert(first)
+
+	t, ok := self.peek()
+	if ok && t.Value == token.Else {
+
+		self.index++
+
+		t, ok := self.consume()
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		if t.Value != token.CurlyL {
+			return nil, ErrExpectedToken
+		}
+
+		second, err := self.ParseStatements()
+		if err != nil {
+			return nil, err
+		}
+
+		node.Right.Insert(second)
+	}
+
+	return node, nil
+}
+
+func (self *Parser) ParseWhile() (*ast.Node, error) {
+	condition, err := self.ParseExpression(0)
+	if err != nil {
+		return nil, err
+	}
+
+	first, err := self.ParseStatements()
+	if err != nil {
+		return nil, err
+	}
+
+	node := ast.New(ast.While)
+
+	node.Left = condition
+	node.Right = first
+
+	return node, nil
+}
+
+func (self *Parser) ParseInterrupt() (*ast.Node, error) {
+	value, ok := self.matchType(token.Integer)
+	if !ok {
+		return nil, ErrExpectedToken
+	}
+
+	_, ok = self.matchType(token.EOL)
+	if !ok {
+		return nil, ErrExpectedToken
+	}
+
+	node := ast.New(ast.Interrupt)
+
+	interrupt, err := strconv.ParseUint(string(value.Value), 10, 64)
+	if err != nil {
+		return nil, err
+	}
+
+	node.Value = int(interrupt)
+
+	return node, nil
 }
 
 func (self *Parser) ParseStatement() (*ast.Node, error) {
@@ -31,107 +214,16 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 
 	switch t.Value {
 	case token.I32:
-
-		identifier, ok := self.matchType(token.Identifier)
-		if !ok {
-			return nil, ErrExpectedToken
-		}
-
-		_, ok = self.matchType(token.EOL)
-		if !ok {
-			return nil, ErrExpectedToken
-		}
-
-		node := ast.New(ast.Declare)
-		index := self.registerSymbol(string(identifier.Value))
-
-		node.Value = index
-
-		return node, nil
+		return self.ParseDeclaration()
 
 	case token.If:
-
-		condition, err := self.ParseExpression(0)
-		if err != nil {
-			return nil, err
-		}
-
-		first, err := self.ParseStatements()
-		if err != nil {
-			return nil, err
-		}
-
-		node := ast.New(ast.If)
-		node.Left = condition
-		node.Right = ast.New(ast.Glue)
-
-		node.Right.Insert(first)
-
-		t, ok := self.peek()
-		if ok && t.Value == token.Else {
-
-			self.index++
-
-			t, ok := self.consume()
-			if !ok {
-				return nil, ErrExpectedToken
-			}
-
-			if t.Value != token.CurlyL {
-				return nil, ErrExpectedToken
-			}
-
-			second, err := self.ParseStatements()
-			if err != nil {
-				return nil, err
-			}
-
-			node.Right.Insert(second)
-		}
-
-		return node, nil
+		return self.ParseBranch()
 
 	case token.While:
-
-		condition, err := self.ParseExpression(0)
-		if err != nil {
-			return nil, err
-		}
-
-		first, err := self.ParseStatements()
-		if err != nil {
-			return nil, err
-		}
-
-		node := ast.New(ast.While)
-
-		node.Left = condition
-		node.Right = first
-
-		return node, nil
+		return self.ParseWhile()
 
 	case token.Interrupt:
-
-		value, ok := self.matchType(token.Integer)
-		if !ok {
-			return nil, ErrExpectedToken
-		}
-
-		_, ok = self.matchType(token.EOL)
-		if !ok {
-			return nil, ErrExpectedToken
-		}
-
-		node := ast.New(ast.Interrupt)
-
-		interrupt, err := strconv.ParseUint(string(value.Value), 10, 64)
-		if err != nil {
-			return nil, err
-		}
-
-		node.Value = int(interrupt)
-
-		return node, nil
+		return self.ParseInterrupt()
 	}
 
 	return nil, ErrUnidentifiedKeyword

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"language/module/ast"
 	"language/module/token"
-	"slices"
 	"strconv"
 )
 
@@ -77,12 +76,37 @@ func astNodeType(t token.Value) (ast.Type, bool) {
 	return node, true
 }
 
-func (self *Parser) findSymbol(name string) (int, bool) {
-	symbol := slices.Index(self.Symbols, name)
-	if symbol == -1 {
-		return 0, false
+func (self *Parser) parseArguments() (*ast.Node, error) {
+
+	master := ast.New(ast.Glue)
+	root := master
+
+	for {
+		t, ok := self.peek()
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		if t.Value == token.ParenR {
+			self.index++
+			return root, nil
+		}
+
+		node, err := self.ParseExpression(0)
+		if err != nil {
+			return nil, err
+		}
+
+		ok = master.Insert(node)
+		if !ok {
+			swap := master.Right
+			master.Right = ast.New(ast.Glue)
+			master = master.Right
+
+			master.Insert(swap)
+			master.Insert(node)
+		}
 	}
-	return symbol, true
 }
 
 func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
@@ -94,7 +118,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 		return nil, ErrExpectedToken
 	}
 
-	if t.Type == token.EOL {
+	if t.Type == token.EOL && t.Value == token.Comma {
 		return lhs, nil
 	}
 
@@ -117,18 +141,34 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 	}
 
 	if t.Type == token.Identifier {
-		index, ok := self.findSymbol(string(t.Value))
-		if !ok {
-			return nil, ErrUndeclaredIdentifier
-		}
+		index := self.registerSymbol(string(t.Value))
 
-		lhs = ast.NewWithValue(ast.Identifier, index)
+		next, ok := self.peek()
+		if ok && next.Value == token.ParenL {
+			lhs = ast.NewWithValue(ast.Call, index)
+
+			self.index++
+
+			args, err := self.parseArguments()
+			if err != nil {
+				return nil, err
+			}
+
+			lhs.Left = args
+		} else {
+			lhs = ast.NewWithValue(ast.Identifier, index)
+		}
 	}
 
 	for {
 		t, ok = self.matchType(token.Operator)
 		if !ok {
-			if t.Type == token.EOL || t.Value == token.CurlyL {
+			if t.Type == token.EOL || t.Value == token.CurlyL || t.Value == token.Comma {
+				return lhs, nil
+			}
+
+			if t.Value == token.ParenR {
+				self.index--
 				return lhs, nil
 			}
 

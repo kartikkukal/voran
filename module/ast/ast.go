@@ -24,7 +24,9 @@ const (
 	Declare   Type = "declare"
 	If        Type = "if"
 	While     Type = "while"
+	Function  Type = "function"
 	Interrupt Type = "interrupt"
+	Call      Type = "call"
 
 	Integer    Type = "number"
 	String     Type = "string"

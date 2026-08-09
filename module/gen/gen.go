@@ -8,8 +8,12 @@ type Gen interface {
 	CreateLabel() string
 	SwitchLabel(name string)
 
-	LoadValue(v int) string
-	LoadInt(name string) string
+	//MainFunction()
+	DeclareFunction(name string)
+	ReturnFunction()
+
+	CallFunction(name string)
+
 	Add(r1, r2 string)
 	Subtract(r1, r2 string)
 	Multiply(r1, r2 string)
@@ -31,8 +35,17 @@ type Gen interface {
 
 	Jump(name string)
 
-	DeclareInt(name string)
-	StoreInt(r, name string)
+	LoadLiteral(v int) string
+
+	DeclareLocal(size int) int
+	LoadLocal(index, size int) string
+	StoreLocal(r string, index int)
+
+	/*
+		DeclareGlobal(name string, size int)
+		LoadGlobal(name string)
+		StoreGlobal(r, name string)
+	*/
 
 	Interrupt(i int)
 

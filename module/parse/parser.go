@@ -64,3 +64,22 @@ func (self *Parser) matchType(kind token.Type) (token.Token, bool) {
 
 	return t, true
 }
+
+func (self *Parser) registerSymbol(name string) int {
+
+	index := -1
+
+	for i, v := range self.Symbols {
+		if name == v {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		self.Symbols = append(self.Symbols, name)
+		return len(self.Symbols) - 1
+	}
+
+	return index
+}
