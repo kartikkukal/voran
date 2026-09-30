@@ -1,89 +1,142 @@
 package token
 
-import "fmt"
-
-type Value string
+import (
+	"fmt"
+)
 
 const (
 	// Keywords
-	I8        Value = "i8"
-	I16       Value = "i16"
-	I32       Value = "i32"
-	I64       Value = "i64"
-	U8        Value = "u8"
-	U16       Value = "u16"
-	U32       Value = "u32"
-	U64       Value = "u64"
-	If        Value = "if"
-	Else      Value = "else"
-	While     Value = "while"
-	Interrupt Value = "interrupt"
+	Byte   = "byte"
+	Short  = "short"
+	Int    = "int"
+	Long   = "long"
+	UByte  = "ubyte"
+	UShort = "ushort"
+	UInt   = "uint"
+	ULong  = "ulong"
+	If     = "if"
+	Else   = "else"
+	While  = "while"
 
 	// Operators
-	Equals        Value = "="
-	Add           Value = "+"
-	AddEqual      Value = "+="
-	Subtract      Value = "-"
-	SubtractEqual Value = "-="
-	Multiply      Value = "*"
-	MultiplyEqual Value = "*="
-	Divide        Value = "/"
-	DivideEqual   Value = "/="
-	Modulus       Value = "%"
-	ModulusEqual  Value = "%="
+	Equal = "="
+	Add   = "+"
+	AddEq = "+="
+	Sub   = "-"
+	SubEq = "-="
+	Mul   = "*"
+	MulEq = "*="
+	Div   = "/"
+	DivEq = "/="
+	Mod   = "%"
+	ModEq = "%="
 
-	Equal          Value = "=="
-	NotEqual       Value = "!="
-	LessThan       Value = "<"
-	LessOrEqual    Value = "<="
-	GreaterThan    Value = ">"
-	GreaterOrEqual Value = ">="
+	Equals    = "=="
+	NotEq     = "!="
+	Less      = "<"
+	LessEq    = "<="
+	Greater   = ">"
+	GreaterEq = ">="
 
 	// Punctuators
-	ParenL    Value = "("
-	ParenR    Value = ")"
-	CurlyL    Value = "{"
-	CurlyR    Value = "}"
-	SquareL   Value = "["
-	SquareR   Value = "]"
-	Semicolon Value = ";"
-	Colon     Value = ":"
-	Comma     Value = ","
-	Period    Value = "."
+	ParenL    = "("
+	ParenR    = ")"
+	CurlyL    = "{"
+	CurlyR    = "}"
+	SquareL   = "["
+	SquareR   = "]"
+	Semicolon = ";"
+	Colon     = ":"
+	Comma     = ","
+	Period    = "."
 
-	Empty Value = ""
+	Empty = ""
 )
 
-type Type string
+type Type uint8
 
 // Types of tokens
 const (
-	Identifier Type = "identifier"
-	Keyword    Type = "keyword"
-	Operator   Type = "operator"
-	Punctuator Type = "punctuator"
-	String     Type = "string"
-	Integer    Type = "integer"
+	Identifier = iota
+	Keyword
+	Operator
+	Punctuator
 
-	EOL Type = "eol"
-	EOF Type = "eof"
+	LiteralStr
+	LiteralInt
+
+	EOL
+	EOF
+)
+
+var (
+	Keywords = []string{
+		Byte,
+		Short,
+		Int,
+		Long,
+		UByte,
+		UShort,
+		UInt,
+		ULong,
+		If,
+		Else,
+		While,
+	}
+
+	Operators = []string{
+		Equal,
+		Add,
+		AddEq,
+		Sub,
+		SubEq,
+		Mul,
+		MulEq,
+		Div,
+		DivEq,
+		Mod,
+		ModEq,
+		Equals,
+		NotEq,
+		Less,
+		LessEq,
+		Greater,
+		GreaterEq,
+	}
 )
 
 type Token struct {
-	Value Value
+	Value string
 	Type  Type
 
 	line   int
 	column int
 }
 
-func New(data Value, t Type, l, c int) Token {
+func New(data string, t Type, line, col int) Token {
 	return Token{
 		Value:  data,
 		Type:   t,
-		line:   l,
-		column: c,
+		line:   line,
+		column: col,
 	}
+}
+
+func TypeOf(t string) Type {
+
+	for _, v := range Keywords {
+		if t == v {
+			return Keyword
+		}
+	}
+
+	for _, v := range Operators {
+		if t == v {
+			return Operator
+		}
+	}
+
+	return Punctuator
 }
 
 func (self Token) Debug() string {

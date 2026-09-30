@@ -13,7 +13,8 @@ type Parser struct {
 	tokens []token.Token
 	index  int
 
-	Symbols []string
+	Constants []string
+	Symbols   []string
 }
 
 func New(tokens []token.Token) Parser {
@@ -39,7 +40,7 @@ func (self *Parser) consume() (token.Token, bool) {
 	return self.peek()
 }
 
-func (self *Parser) matchToken(data token.Value) (token.Token, bool) {
+func (self *Parser) matchToken(data string) (token.Token, bool) {
 	t, ok := self.consume()
 	if !ok {
 		return token.Token{}, false
@@ -63,6 +64,25 @@ func (self *Parser) matchType(kind token.Type) (token.Token, bool) {
 	}
 
 	return t, true
+}
+
+func (self *Parser) registerString(data string) int {
+
+	index := -1
+
+	for i, v := range self.Constants {
+		if data == v {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		self.Constants = append(self.Constants, data)
+		return len(self.Constants) - 1
+	}
+
+	return index
 }
 
 func (self *Parser) registerSymbol(name string) int {

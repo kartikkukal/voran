@@ -4,36 +4,58 @@ import (
 	"fmt"
 )
 
-type Type string
+type Kind uint8
 
 const (
-	Add            Type = "+"
-	Subtract       Type = "-"
-	Multiply       Type = "*"
-	Divide         Type = "/"
-	Modulus        Type = "%"
-	Equals         Type = "="
-	Equal          Type = "=="
-	NotEqual       Type = "!="
-	LessThan       Type = "<"
-	LessOrEqual    Type = "<="
-	GreaterThan    Type = ">"
-	GreaterOrEqual Type = ">="
+	Add = iota
+	Sub
+	Mul
+	Div
+	Mod
+	Equal
+	Equals
+	NotEq
+	Less
+	LessEq
+	Greater
+	GreaterEq
 
-	Glue      Type = "glue"
-	Declare   Type = "declare"
-	If        Type = "if"
-	While     Type = "while"
-	Function  Type = "function"
-	Interrupt Type = "interrupt"
-	Call      Type = "call"
+	Glue
+	Declare
+	Branch
+	While
+	Function
+	Identifier
+	Call
 
-	Integer    Type = "number"
-	String     Type = "string"
-	Identifier Type = "identifier"
+	Literal
+
+	Invalid
+)
+
+type Type uint8
+
+const (
+	Byte Type = iota
+	Short
+	Int
+	Long
+	UByte
+	UShort
+	UInt
+	ULong
+
+	Float
+	Double
+
+	String
+	Rune
+
+	None
 )
 
 type Node struct {
+	Kind  Kind
 	Type  Type
 	Value int
 
@@ -43,9 +65,9 @@ type Node struct {
 	Right *Node
 }
 
-func New(t Type) *Node {
+func New(t Kind) *Node {
 	return &Node{
-		Type:   t,
+		Kind:   t,
 		Value:  0,
 		RValue: true,
 		Left:   nil,
@@ -53,19 +75,20 @@ func New(t Type) *Node {
 	}
 }
 
-func NewWithValue(t Type, value int) *Node {
+func NewWithValue(kind Kind, value int, t Type) *Node {
 	return &Node{
-		Type:   t,
+		Kind:   kind,
 		Value:  value,
+		Type:   t,
 		RValue: true,
 		Left:   nil,
 		Right:  nil,
 	}
 }
 
-func NewWithChildren(t Type, left, right *Node) *Node {
+func NewWithChildren(t Kind, left, right *Node) *Node {
 	return &Node{
-		Type:  t,
+		Kind:  t,
 		Value: 0,
 		Left:  left,
 		Right: right,
@@ -91,9 +114,9 @@ func (self *Node) debug(indent string, last bool, middle bool) string {
 	var output string
 
 	if middle {
-		output += fmt.Sprintf("%v├─ %v\n", indent, self.Type)
+		output += fmt.Sprintf("%v├─ %v\n", indent, self.Kind)
 	} else {
-		output += fmt.Sprintf("%v└─ %v\n", indent, self.Type)
+		output += fmt.Sprintf("%v└─ %v\n", indent, self.Kind)
 
 	}
 

@@ -1,8 +1,9 @@
 package gen
 
 type Gen interface {
-	AllocateRegister(size int) (string, bool)
+	AllocateRegister(bytes int) (string, bool)
 	DeallocateRegister(r string) bool
+	SizedRegister(r string, bytes int) string
 	DeallocateAllRegisters()
 
 	CreateLabel() string
@@ -35,7 +36,7 @@ type Gen interface {
 
 	Jump(name string)
 
-	LoadLiteral(v int) string
+	LoadLiteral(v, size int) string
 
 	DeclareLocal(size int) int
 	LoadLocal(index, size int) string

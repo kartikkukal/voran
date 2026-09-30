@@ -11,16 +11,23 @@ var (
 	ErrNoValue         = errors.New("terminal node has no value")
 	ErrNoFreeRegisters = errors.New("no free registers")
 	ErrUnknownAST      = errors.New("unknown AST node encountered")
+
+	sizes = map[ast.Type]int{
+		ast.Byte:  1,
+		ast.Short: 2,
+		ast.Int:   4,
+		ast.Long:  8,
+	}
 )
 
 type Symbol struct {
-	stack int
+	dataType ast.Type
+	size     int
+	address  int
 }
 
 type Emit struct {
-	locals  map[int]int
-	globals map[int]string
-
+	locals  map[int]Symbol
 	mapping []string
 
 	gen.Gen
@@ -29,8 +36,7 @@ type Emit struct {
 func New(generator gen.Gen, mapping []string) Emit {
 
 	object := Emit{
-		locals:  make(map[int]int),
-		globals: make(map[int]string, 0),
+		locals: make(map[int]Symbol),
 
 		mapping: mapping,
 		Gen:     generator,
@@ -39,20 +45,40 @@ func New(generator gen.Gen, mapping []string) Emit {
 	return object
 }
 
+func (self *Emit) getName(index int) string {
+
+	if index >= len(self.mapping) {
+
+		// Proper error handling
+		return ""
+	}
+
+	return self.mapping[index]
+}
+
+func (self *Emit) registerSymbol(index int, t ast.Type, address int) {
+
+	self.locals[index] = Symbol{
+		dataType: t,
+		size:     sizes[t],
+		address:  address,
+	}
+}
+
 func (self *Emit) EmitArguments(master *ast.Node) {
 
 	fmt.Println(master.Debug())
 
-	if master.Left.Type == ast.Identifier {
+	if master.Left.Kind == ast.Identifier {
 		index := self.locals[master.Left.Value]
-		_ = self.LoadLocal(index, 8)
+		_ = self.LoadLocal(index.address, index.size)
 	} else {
 		self.EmitArguments(master.Left)
 	}
 
-	if master.Right.Type == ast.Identifier {
+	if master.Right.Kind == ast.Identifier {
 		index := self.locals[master.Right.Value]
-		_ = self.LoadLocal(index, 8)
+		_ = self.LoadLocal(index.address, index.size)
 	} else {
 		self.EmitArguments(master.Right)
 	}
@@ -60,7 +86,7 @@ func (self *Emit) EmitArguments(master *ast.Node) {
 
 func (self *Emit) EmitExpression(master *ast.Node, register string) (string, error) {
 
-	if master.Type == ast.Call {
+	if master.Kind == ast.Call {
 		self.DeallocateAllRegisters()
 		self.EmitArguments(master.Left)
 
@@ -68,18 +94,23 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 		return "", nil
 	}
 
-	if master.Type == ast.Integer {
-		r := self.LoadLiteral(master.Value)
+	if master.Kind == ast.Literal {
+		// TODO: Add proper handling for larger integer sizes
+
+		r := self.LoadLiteral(master.Value, sizes[master.Type])
 		return r, nil
 	}
 
-	if master.Type == ast.Identifier {
+	if master.Kind == ast.Identifier {
 		if master.RValue {
-			r := self.LoadLocal(self.locals[master.Value], 3)
+			symbol := self.locals[master.Value]
+			r := self.LoadLocal(symbol.address, symbol.size)
 			return r, nil
 
 		} else {
-			self.StoreLocal(register, self.locals[master.Value])
+			// FIXME: Ugly hack to resize register to target size
+			register = self.SizedRegister(register, self.locals[master.Value].size)
+			self.StoreLocal(register, self.locals[master.Value].address)
 			return register, nil
 		}
 	}
@@ -94,8 +125,8 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 		return "", err
 	}
 
-	switch master.Type {
-	case ast.Equals:
+	switch master.Kind {
+	case ast.Equal:
 
 		return right, nil
 
@@ -104,52 +135,52 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 		self.Add(left, right)
 		return left, nil
 
-	case ast.Subtract:
+	case ast.Sub:
 
 		self.Subtract(left, right)
 		return left, nil
 
-	case ast.Multiply:
+	case ast.Mul:
 
 		self.Multiply(left, right)
 		return left, nil
 
-	case ast.Divide:
+	case ast.Div:
 
 		self.Divide(left, right)
 		return left, nil
 
-	case ast.Modulus:
+	case ast.Mod:
 
 		self.Modulus(left, right)
 		return left, nil
 
-	case ast.Equal:
+	case ast.Equals:
 
 		self.Equality(left, right)
 		return left, nil
 
-	case ast.NotEqual:
+	case ast.NotEq:
 
 		self.NotEqual(left, right)
 		return left, nil
 
-	case ast.LessThan:
+	case ast.Less:
 
 		self.LessThan(left, right)
 		return left, nil
 
-	case ast.GreaterThan:
+	case ast.Greater:
 
 		self.GreaterThan(left, right)
 		return left, nil
 
-	case ast.LessOrEqual:
+	case ast.LessEq:
 
 		self.LessOrEqual(left, right)
 		return left, nil
 
-	case ast.GreaterOrEqual:
+	case ast.GreaterEq:
 
 		self.GreaterOrEqual(left, right)
 		return left, nil
@@ -158,25 +189,22 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 	return "", ErrUnknownAST
 }
 
-/*
-func (self *Emit)
-*/
 func (self *Emit) TraverseParameters(master *ast.Node) error {
-	store := func(value int) error {
-		r, ok := self.AllocateRegister(3)
+	store := func(value int, t ast.Type) error {
+		r, ok := self.AllocateRegister(sizes[t])
 		if !ok {
 			return ErrNoFreeRegisters
 		}
 
-		index := self.DeclareLocal(8)
+		index := self.DeclareLocal(sizes[t])
 		self.StoreLocal(r, index)
 
-		self.locals[value] = index
+		self.registerSymbol(value, t, index)
 		return nil
 	}
 
-	if master.Left.Type == ast.Declare {
-		err := store(master.Left.Value)
+	if master.Left.Kind == ast.Declare {
+		err := store(master.Left.Value, master.Left.Type)
 		if err != nil {
 			return err
 		}
@@ -187,8 +215,8 @@ func (self *Emit) TraverseParameters(master *ast.Node) error {
 		}
 	}
 
-	if master.Right.Type == ast.Declare {
-		err := store(master.Right.Value)
+	if master.Right.Kind == ast.Declare {
+		err := store(master.Right.Value, master.Right.Type)
 		if err != nil {
 			return err
 		}
@@ -206,11 +234,15 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 
 	self.DeallocateAllRegisters()
 
-	switch master.Type {
+	switch master.Kind {
 	case ast.Declare:
 
-		index := self.DeclareLocal(8)
-		self.locals[master.Value] = index
+		size := sizes[master.Type]
+
+		println("Found size: ", size, "\n")
+
+		index := self.DeclareLocal(size)
+		self.registerSymbol(master.Value, master.Type, index)
 
 		if master.Left != nil {
 			self.EmitExpression(master.Left, "")
@@ -226,7 +258,7 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 		}
 
 		self.DeclareFunction(self.mapping[master.Value])
-		self.locals = make(map[int]int)
+		self.locals = make(map[int]Symbol)
 
 		self.DeallocateAllRegisters()
 		err := self.TraverseParameters(master.Left)
@@ -243,7 +275,7 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 
 		return nil
 
-	case ast.If:
+	case ast.Branch:
 
 		label_1 := self.CreateLabel()
 
@@ -326,10 +358,10 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 
 		return nil
 
-	case ast.Interrupt:
+	/*case ast.Interrupt:
 
-		self.Interrupt(master.Value)
-		return nil
+	self.Interrupt(master.Value)
+	return nil*/
 
 	default:
 		_, err := self.EmitExpression(master, "")

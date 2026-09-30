@@ -8,19 +8,19 @@ import (
 )
 
 var (
-	precedenceTable = map[token.Value]int{
-		token.Equals:         -1,
-		token.NotEqual:       2,
-		token.Equal:          2,
-		token.LessThan:       2,
-		token.LessOrEqual:    2,
-		token.GreaterThan:    2,
-		token.GreaterOrEqual: 2,
-		token.Add:            3,
-		token.Subtract:       3,
-		token.Multiply:       3,
-		token.Divide:         3,
-		token.Modulus:        3,
+	precedenceTable = map[string]int{
+		token.Equal:     -1,
+		token.NotEq:     2,
+		token.Equals:    2,
+		token.Less:      2,
+		token.LessEq:    2,
+		token.Greater:   2,
+		token.GreaterEq: 2,
+		token.Add:       3,
+		token.Sub:       3,
+		token.Mul:       3,
+		token.Div:       3,
+		token.Mod:       3,
 	}
 
 	ErrUndeclaredIdentifier = errors.New("identifier has not been declared before")
@@ -41,36 +41,36 @@ func bindingPower(token token.Token) (int, int) {
 	}
 }
 
-func astNodeType(t token.Value) (ast.Type, bool) {
-	var node ast.Type
+func astNodeType(t string) (ast.Kind, bool) {
+	var node ast.Kind
 
 	switch t {
 	case token.Add:
 		node = ast.Add
-	case token.Subtract:
-		node = ast.Subtract
-	case token.Multiply:
-		node = ast.Multiply
-	case token.Divide:
-		node = ast.Divide
-	case token.Modulus:
-		node = ast.Modulus
-	case token.Equal:
-		node = ast.Equal
-	case token.NotEqual:
-		node = ast.NotEqual
-	case token.LessThan:
-		node = ast.LessThan
-	case token.LessOrEqual:
-		node = ast.LessOrEqual
-	case token.GreaterThan:
-		node = ast.GreaterThan
-	case token.GreaterOrEqual:
-		node = ast.GreaterOrEqual
+	case token.Sub:
+		node = ast.Sub
+	case token.Mul:
+		node = ast.Mul
+	case token.Div:
+		node = ast.Div
+	case token.Mod:
+		node = ast.Mod
 	case token.Equals:
 		node = ast.Equals
+	case token.NotEq:
+		node = ast.NotEq
+	case token.Less:
+		node = ast.Less
+	case token.LessEq:
+		node = ast.LessEq
+	case token.Greater:
+		node = ast.Greater
+	case token.GreaterEq:
+		node = ast.GreaterEq
+	case token.Equal:
+		node = ast.Equal
 	default:
-		return ast.Type(""), false
+		return ast.Invalid, false
 	}
 
 	return node, true
@@ -131,13 +131,13 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 		}
 	}
 
-	if t.Type == token.Integer {
+	if t.Type == token.LiteralInt {
 		value, err := strconv.ParseUint(string(t.Value), 10, 64)
 		if err != nil {
 			return nil, err
 		}
 
-		lhs = ast.NewWithValue(ast.Integer, int(value))
+		lhs = ast.NewWithValue(ast.Literal, int(value), ast.Int)
 	}
 
 	if t.Type == token.Identifier {
@@ -145,7 +145,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 		next, ok := self.peek()
 		if ok && next.Value == token.ParenL {
-			lhs = ast.NewWithValue(ast.Call, index)
+			lhs = ast.NewWithValue(ast.Call, index, ast.None)
 
 			self.index++
 
@@ -156,7 +156,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 			lhs.Left = args
 		} else {
-			lhs = ast.NewWithValue(ast.Identifier, index)
+			lhs = ast.NewWithValue(ast.Identifier, index, ast.None)
 		}
 	}
 
@@ -199,7 +199,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 		op := ast.NewWithChildren(node, lhs, rhs)
 
-		if node != ast.Equals {
+		if node != ast.Equal {
 			op.RValue = true
 
 		} else {

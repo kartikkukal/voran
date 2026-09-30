@@ -39,20 +39,44 @@ func (self *Voran) append(format string, a ...any) {
 	self.labels[self.currentLabel] = append(self.labels[self.currentLabel], fmt.Sprintf("\t"+format, a...))
 }
 
-func (self *Voran) AllocateRegister(size int) (string, bool) {
-
-	if size < 0 || size > 3 {
-		return "", false
-	}
-
-	if len(self.registers) < 1 {
-		return "", false
-	}
+func (self *Voran) AllocateRegister(bytes int) (string, bool) {
 
 	r := self.registers[0]
 	self.registers = self.registers[1:]
 
+	size := 0
+
+	switch bytes {
+	case 1:
+		size = 0
+	case 2:
+		size = 1
+	case 4:
+		size = 2
+	case 8:
+		size = 3
+	}
+
 	return fmt.Sprintf("%v%v", self.size[size], r), true
+}
+
+func (self *Voran) SizedRegister(r string, bytes int) string {
+	original := r[1:]
+
+	size := 0
+
+	switch bytes {
+	case 1:
+		size = 0
+	case 2:
+		size = 1
+	case 4:
+		size = 2
+	case 8:
+		size = 3
+	}
+
+	return fmt.Sprintf("%v%v", self.size[size], original)
 }
 
 func (self *Voran) DeallocateRegister(r string) bool {
@@ -182,8 +206,8 @@ func (self *Voran) Jump(name string) {
 }
 
 // Use adequate register sizes
-func (self *Voran) LoadLiteral(v int) string {
-	r, ok := self.AllocateRegister(3)
+func (self *Voran) LoadLiteral(v, size int) string {
+	r, ok := self.AllocateRegister(size)
 	if !ok {
 		return ""
 	}
@@ -194,13 +218,13 @@ func (self *Voran) LoadLiteral(v int) string {
 
 func (self *Voran) DeclareLocal(size int) int {
 	index := self.stack
-	self.stack += 8
+	self.stack += size
 
 	return index
 }
 
 func (self *Voran) LoadLocal(index, size int) string {
-	r, ok := self.AllocateRegister(3)
+	r, ok := self.AllocateRegister(size)
 	if !ok {
 		return ""
 	}

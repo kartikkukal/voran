@@ -4,7 +4,6 @@ import (
 	"errors"
 	"language/module/ast"
 	"language/module/token"
-	"strconv"
 )
 
 var (
@@ -33,7 +32,7 @@ func (self *Parser) ParseParameters() (*ast.Node, error) {
 			return nil, err
 		}
 
-		if node.Type != ast.Declare {
+		if node.Kind != ast.Declare {
 			return nil, ErrInvalidParameters
 		}
 
@@ -49,17 +48,21 @@ func (self *Parser) ParseParameters() (*ast.Node, error) {
 	}
 }
 
-func (self *Parser) ParseDeclaration() (*ast.Node, error) {
+// Parses a declaration of a variable or function of a given type.
+//
+// Returns either a single node with variable name and type
+// or a function node with left tree containing parameters
+// and right tree containing the body of the function.
+func (self *Parser) ParseDeclaration(t ast.Type) (*ast.Node, error) {
 
 	identifier, ok := self.matchType(token.Identifier)
 	if !ok {
 		return nil, ErrExpectedToken
 	}
 
-	index := self.registerSymbol(string(identifier.Value))
+	index := self.registerSymbol(identifier.Value)
 
-	node := ast.New(ast.Declare)
-	node.Value = index
+	node := ast.NewWithValue(ast.Declare, index, t)
 
 	next, ok := self.consume()
 
@@ -73,7 +76,7 @@ func (self *Parser) ParseDeclaration() (*ast.Node, error) {
 		return node, nil
 	}
 
-	if next.Value == token.Equals {
+	if next.Value == token.Equal {
 		self.index = self.index - 2
 
 		initializer, err := self.ParseExpression(0)
@@ -103,6 +106,7 @@ func (self *Parser) ParseDeclaration() (*ast.Node, error) {
 	node = ast.New(ast.Function)
 
 	node.Value = index
+	node.Type = t
 	node.Left = parameters
 	node.Right = body
 
@@ -126,7 +130,7 @@ func (self *Parser) ParseBranch() (*ast.Node, error) {
 		return nil, err
 	}
 
-	node := ast.New(ast.If)
+	node := ast.New(ast.Branch)
 	node.Left = condition
 	node.Right = ast.New(ast.Glue)
 
@@ -176,8 +180,9 @@ func (self *Parser) ParseWhile() (*ast.Node, error) {
 	return node, nil
 }
 
+/*
 func (self *Parser) ParseInterrupt() (*ast.Node, error) {
-	value, ok := self.matchType(token.Integer)
+	value, ok := self.matchType(token.LITERAL_INT)
 	if !ok {
 		return nil, ErrExpectedToken
 	}
@@ -197,7 +202,7 @@ func (self *Parser) ParseInterrupt() (*ast.Node, error) {
 	node.Value = int(interrupt)
 
 	return node, nil
-}
+}*/
 
 func (self *Parser) ParseStatement() (*ast.Node, error) {
 
@@ -213,8 +218,17 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 	}
 
 	switch t.Value {
-	case token.I32:
-		return self.ParseDeclaration()
+	case token.Byte:
+		return self.ParseDeclaration(ast.Byte)
+
+	case token.Short:
+		return self.ParseDeclaration(ast.Short)
+
+	case token.Int:
+		return self.ParseDeclaration(ast.Int)
+
+	case token.Long:
+		return self.ParseDeclaration(ast.Long)
 
 	case token.If:
 		return self.ParseBranch()
@@ -222,8 +236,8 @@ func (self *Parser) ParseStatement() (*ast.Node, error) {
 	case token.While:
 		return self.ParseWhile()
 
-	case token.Interrupt:
-		return self.ParseInterrupt()
+		/*case token.Interrupt:
+		return self.ParseInterrupt()*/
 	}
 
 	return nil, ErrUnidentifiedKeyword

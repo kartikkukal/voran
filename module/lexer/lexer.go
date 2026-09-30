@@ -8,41 +8,6 @@ import (
 )
 
 var (
-	keywordSlice = []token.Value{
-		token.I8,
-		token.I16,
-		token.I32,
-		token.I64,
-		token.U8,
-		token.U16,
-		token.U32,
-		token.U64,
-		token.If,
-		token.Else,
-		token.While,
-		token.Interrupt,
-	}
-
-	operatorSlice = []token.Value{
-		token.Equals,
-		token.Add,
-		token.AddEqual,
-		token.Subtract,
-		token.SubtractEqual,
-		token.Multiply,
-		token.MultiplyEqual,
-		token.Divide,
-		token.DivideEqual,
-		token.Modulus,
-		token.ModulusEqual,
-		token.Equal,
-		token.NotEqual,
-		token.LessThan,
-		token.LessOrEqual,
-		token.GreaterThan,
-		token.GreaterOrEqual,
-	}
-
 	ErrUnknownCharacter = errors.New("unknown character encountered")
 	ErrUnknownToken     = errors.New("unknown token encountered")
 
@@ -113,7 +78,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 	flush := func(data string, kind token.Type, line, column int) {
 
-		t := token.New(token.Value(data), kind, line, column)
+		t := token.New(data, kind, line, column)
 
 		tokens = append(tokens, t)
 		buffer = nil
@@ -182,8 +147,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 			value := string(buffer)
 
-			ok := slices.Contains(keywordSlice, token.Value(value))
-			if ok {
+			if token.TypeOf(value) == token.Keyword {
 				flush(value, token.Keyword, line, column)
 				continue
 			}
@@ -199,7 +163,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 			value := string(buffer)
 
-			if !slices.Contains(operatorSlice, token.Value(value)) {
+			if token.TypeOf(value) != token.Operator {
 				return nil, wrapper(ErrUnknownToken)
 			}
 
@@ -220,7 +184,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 			value := string(buffer)
 
-			flush(value, token.Integer, line, column)
+			flush(value, token.LiteralInt, line, column)
 			continue
 		}
 
@@ -230,7 +194,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 			value := string(buffer)
 
-			flush(value, token.String, line, column)
+			flush(value, token.LiteralStr, line, column)
 			continue
 		}
 
@@ -240,7 +204,7 @@ func (self *Lexer) Tokenize() ([]token.Token, error) {
 
 			value := string(buffer)
 
-			flush(value, token.String, line, column)
+			flush(value, token.LiteralStr, line, column)
 			continue
 		}
 
