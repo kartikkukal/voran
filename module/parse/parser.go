@@ -2,6 +2,7 @@ package parse
 
 import (
 	"errors"
+	"language/module/ast"
 	"language/module/token"
 )
 
@@ -9,12 +10,17 @@ var (
 	ErrExpectedToken = errors.New("expected token")
 )
 
+type Symbol struct {
+	Name string
+	Type ast.Type
+}
+
 type Parser struct {
 	tokens []token.Token
 	index  int
 
 	Constants []string
-	Symbols   []string
+	Symbols   []Symbol
 }
 
 func New(tokens []token.Token) Parser {
@@ -85,21 +91,32 @@ func (self *Parser) registerString(data string) int {
 	return index
 }
 
-func (self *Parser) registerSymbol(name string) int {
+// Adds a symbol with its name and type and returns the index
+func (self *Parser) registerSymbol(name string, t ast.Type) int {
 
-	index := -1
-
-	for i, v := range self.Symbols {
-		if name == v {
-			index = i
-			break
+	for _, v := range self.Symbols {
+		if name == v.Name {
+			// FIXME: Don't panic here
+			panic("symbol already declared")
 		}
 	}
 
-	if index == -1 {
-		self.Symbols = append(self.Symbols, name)
-		return len(self.Symbols) - 1
+	self.Symbols = append(self.Symbols, Symbol{
+		Name: name,
+		Type: t,
+	})
+	return len(self.Symbols) - 1
+}
+
+// Find a symbol, if it exists and return its index and type
+func (self *Parser) findSymbol(name string) (int, ast.Type) {
+
+	for i, v := range self.Symbols {
+		if name == v.Name {
+			return i, v.Type
+		}
 	}
 
-	return index
+	// FIXME: Don't panic here
+	panic("symbol not found")
 }

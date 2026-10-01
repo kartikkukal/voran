@@ -12,9 +12,9 @@ var (
 		token.Equal:     -1,
 		token.NotEq:     2,
 		token.Equals:    2,
-		token.Less:      2,
+		token.ChevronL:  2,
 		token.LessEq:    2,
-		token.Greater:   2,
+		token.ChevronR:  2,
 		token.GreaterEq: 2,
 		token.Add:       3,
 		token.Sub:       3,
@@ -59,11 +59,11 @@ func astNodeType(t string) (ast.Kind, bool) {
 		node = ast.Equals
 	case token.NotEq:
 		node = ast.NotEq
-	case token.Less:
+	case token.ChevronL:
 		node = ast.Less
 	case token.LessEq:
 		node = ast.LessEq
-	case token.Greater:
+	case token.ChevronR:
 		node = ast.Greater
 	case token.GreaterEq:
 		node = ast.GreaterEq
@@ -141,11 +141,11 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 	}
 
 	if t.Type == token.Identifier {
-		index := self.registerSymbol(string(t.Value))
+		index, astType := self.findSymbol(t.Value)
 
 		next, ok := self.peek()
 		if ok && next.Value == token.ParenL {
-			lhs = ast.NewWithValue(ast.Call, index, ast.None)
+			lhs = ast.NewWithValue(ast.Call, index, astType)
 
 			self.index++
 
@@ -156,7 +156,7 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 			lhs.Left = args
 		} else {
-			lhs = ast.NewWithValue(ast.Identifier, index, ast.None)
+			lhs = ast.NewWithValue(ast.Identifier, index, astType)
 		}
 	}
 

@@ -6,8 +6,9 @@ import (
 
 type Kind uint8
 
+//go:generate stringer -type=Kind
 const (
-	Add = iota
+	Add Kind = iota
 	Sub
 	Mul
 	Div
@@ -25,8 +26,12 @@ const (
 	Branch
 	While
 	Function
+	Parameter
 	Identifier
+	Sycall
 	Call
+
+	Implicit
 
 	Literal
 
@@ -35,6 +40,7 @@ const (
 
 type Type uint8
 
+//go:generate stringer -type=Type
 const (
 	Byte Type = iota
 	Short
@@ -49,8 +55,6 @@ const (
 	Double
 
 	String
-	Rune
-
 	None
 )
 
@@ -68,6 +72,7 @@ type Node struct {
 func New(t Kind) *Node {
 	return &Node{
 		Kind:   t,
+		Type:   None,
 		Value:  0,
 		RValue: true,
 		Left:   nil,
@@ -107,6 +112,10 @@ func (self *Node) Insert(node *Node) bool {
 	}
 
 	return false
+}
+
+func (self *Node) Terminal() bool {
+	return self.Left == nil && self.Right == nil
 }
 
 func (self *Node) debug(indent string, last bool, middle bool) string {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"language/module/ast"
 	"language/module/gen"
+	"language/module/parse"
 )
 
 var (
@@ -33,12 +34,18 @@ type Emit struct {
 	gen.Gen
 }
 
-func New(generator gen.Gen, mapping []string) Emit {
+func New(generator gen.Gen, mapping []parse.Symbol) Emit {
+
+	var converted []string
+
+	for _, v := range mapping {
+		converted = append(converted, v.Name)
+	}
 
 	object := Emit{
 		locals: make(map[int]Symbol),
 
-		mapping: mapping,
+		mapping: converted,
 		Gen:     generator,
 	}
 
@@ -113,6 +120,15 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 			self.StoreLocal(register, self.locals[master.Value].address)
 			return register, nil
 		}
+	}
+
+	if master.Kind == ast.Implicit {
+		// TODO: Implement type casting logic here
+
+		r, err := self.EmitExpression(master.Left, register)
+		r = self.SizedRegister(r, sizes[master.Type])
+
+		return r, err
 	}
 
 	left, err := self.EmitExpression(master.Left, "")
@@ -239,13 +255,17 @@ func (self *Emit) EmitStatement(master *ast.Node) error {
 
 		size := sizes[master.Type]
 
-		println("Found size: ", size, "\n")
-
 		index := self.DeclareLocal(size)
 		self.registerSymbol(master.Value, master.Type, index)
 
 		if master.Left != nil {
-			self.EmitExpression(master.Left, "")
+			r, err := self.EmitExpression(master.Left, "")
+			if err != nil {
+				return err
+			}
+
+			r = self.SizedRegister(r, size)
+			self.StoreLocal(r, index)
 		}
 
 		return nil

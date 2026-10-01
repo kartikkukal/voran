@@ -14,9 +14,17 @@ const (
 	UShort = "ushort"
 	UInt   = "uint"
 	ULong  = "ulong"
-	If     = "if"
-	Else   = "else"
-	While  = "while"
+	Float  = "float"
+	Double = "double"
+	String = "string"
+
+	Var     = "var"
+	Val     = "val"
+	Func    = "func"
+	If      = "if"
+	Else    = "else"
+	While   = "while"
+	Syscall = "syscall"
 
 	// Operators
 	Equal = "="
@@ -33,9 +41,9 @@ const (
 
 	Equals    = "=="
 	NotEq     = "!="
-	Less      = "<"
+	ChevronL  = "<"
 	LessEq    = "<="
-	Greater   = ">"
+	ChevronR  = ">"
 	GreaterEq = ">="
 
 	// Punctuators
@@ -79,9 +87,27 @@ var (
 		UShort,
 		UInt,
 		ULong,
+		Var,
+		Val,
+		Func,
 		If,
 		Else,
 		While,
+		Syscall,
+	}
+
+	Types = []string{
+		Byte,
+		Short,
+		Int,
+		Long,
+		UByte,
+		UShort,
+		UInt,
+		ULong,
+		Float,
+		Double,
+		String,
 	}
 
 	Operators = []string{
@@ -98,9 +124,9 @@ var (
 		ModEq,
 		Equals,
 		NotEq,
-		Less,
+		ChevronL,
 		LessEq,
-		Greater,
+		ChevronR,
 		GreaterEq,
 	}
 )
