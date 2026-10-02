@@ -32,12 +32,13 @@ const (
 	AddEq = "+="
 	Sub   = "-"
 	SubEq = "-="
-	Mul   = "*"
+	Star  = "*"
 	MulEq = "*="
 	Div   = "/"
 	DivEq = "/="
 	Mod   = "%"
 	ModEq = "%="
+	Ref   = "&"
 
 	Equals    = "=="
 	NotEq     = "!="
@@ -116,12 +117,13 @@ var (
 		AddEq,
 		Sub,
 		SubEq,
-		Mul,
+		Star,
 		MulEq,
 		Div,
 		DivEq,
 		Mod,
 		ModEq,
+		Ref,
 		Equals,
 		NotEq,
 		ChevronL,

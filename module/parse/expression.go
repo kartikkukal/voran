@@ -18,7 +18,7 @@ var (
 		token.GreaterEq: 2,
 		token.Add:       3,
 		token.Sub:       3,
-		token.Mul:       3,
+		token.Star:      3,
 		token.Div:       3,
 		token.Mod:       3,
 	}
@@ -49,7 +49,7 @@ func astNodeType(t string) (ast.Kind, bool) {
 		node = ast.Add
 	case token.Sub:
 		node = ast.Sub
-	case token.Mul:
+	case token.Star:
 		node = ast.Mul
 	case token.Div:
 		node = ast.Div
@@ -109,6 +109,24 @@ func (self *Parser) parseArguments() (*ast.Node, error) {
 	}
 }
 
+func PointerType(t ast.Type) ast.Type {
+	switch t {
+	case ast.Int:
+		return ast.PtrInt
+	default:
+		return ast.None
+	}
+}
+
+func ValueType(t ast.Type) ast.Type {
+	switch t {
+	case ast.PtrInt:
+		return ast.Int
+	default:
+		return ast.None
+	}
+}
+
 func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 
 	var lhs *ast.Node
@@ -157,6 +175,29 @@ func (self *Parser) ParseExpression(rbp int) (*ast.Node, error) {
 			lhs.Left = args
 		} else {
 			lhs = ast.NewWithValue(ast.Identifier, index, astType)
+		}
+	}
+
+	if t.Type == token.Operator {
+
+		next, ok := self.consume()
+		if !ok {
+			return nil, ErrExpectedToken
+		}
+
+		switch t.Value {
+		case token.Star:
+
+			index, astType := self.findSymbol(next.Value)
+			lhs = ast.NewWithValue(ast.Deref, index, ValueType(astType))
+
+		case token.Ref:
+
+			index, astType := self.findSymbol(next.Value)
+			lhs = ast.NewWithValue(ast.Ref, index, PointerType(astType))
+
+		default:
+			panic("unknown unary operator")
 		}
 	}
 

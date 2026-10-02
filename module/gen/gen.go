@@ -42,6 +42,9 @@ type Gen interface {
 	LoadLocal(index, size int) string
 	StoreLocal(r string, index int)
 
+	GetAddress(index int) string
+	LoadAddress(r string, size int) string
+
 	/*
 		DeclareGlobal(name string, size int)
 		LoadGlobal(name string)

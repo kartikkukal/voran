@@ -20,23 +20,25 @@ func _() {
 	_ = x[LessEq-9]
 	_ = x[Greater-10]
 	_ = x[GreaterEq-11]
-	_ = x[Glue-12]
-	_ = x[Declare-13]
-	_ = x[Branch-14]
-	_ = x[While-15]
-	_ = x[Function-16]
-	_ = x[Parameter-17]
-	_ = x[Identifier-18]
-	_ = x[Sycall-19]
-	_ = x[Call-20]
-	_ = x[Implicit-21]
-	_ = x[Literal-22]
-	_ = x[Invalid-23]
+	_ = x[Ref-12]
+	_ = x[Deref-13]
+	_ = x[Glue-14]
+	_ = x[Declare-15]
+	_ = x[Branch-16]
+	_ = x[While-17]
+	_ = x[Function-18]
+	_ = x[Parameter-19]
+	_ = x[Identifier-20]
+	_ = x[Sycall-21]
+	_ = x[Call-22]
+	_ = x[Implicit-23]
+	_ = x[Literal-24]
+	_ = x[Invalid-25]
 }
 
-const _Kind_name = "AddSubMulDivModEqualEqualsNotEqLessLessEqGreaterGreaterEqGlueDeclareBranchWhileFunctionParameterIdentifierSycallCallImplicitLiteralInvalid"
+const _Kind_name = "AddSubMulDivModEqualEqualsNotEqLessLessEqGreaterGreaterEqRefDerefGlueDeclareBranchWhileFunctionParameterIdentifierSycallCallImplicitLiteralInvalid"
 
-var _Kind_index = [...]uint8{0, 3, 6, 9, 12, 15, 20, 26, 31, 35, 41, 48, 57, 61, 68, 74, 79, 87, 96, 106, 112, 116, 124, 131, 138}
+var _Kind_index = [...]uint8{0, 3, 6, 9, 12, 15, 20, 26, 31, 35, 41, 48, 57, 60, 65, 69, 76, 82, 87, 95, 104, 114, 120, 124, 132, 139, 146}
 
 func (i Kind) String() string {
 	idx := int(i) - 0

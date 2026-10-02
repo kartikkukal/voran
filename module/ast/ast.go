@@ -21,6 +21,9 @@ const (
 	Greater
 	GreaterEq
 
+	Ref
+	Deref
+
 	Glue
 	Declare
 	Branch
@@ -50,6 +53,8 @@ const (
 	UShort
 	UInt
 	ULong
+
+	PtrInt
 
 	Float
 	Double
@@ -123,9 +128,9 @@ func (self *Node) debug(indent string, last bool, middle bool) string {
 	var output string
 
 	if middle {
-		output += fmt.Sprintf("%v├─ %v\n", indent, self.Kind)
+		output += fmt.Sprintf("%v├─ %v T: %v\n", indent, self.Kind, self.Type)
 	} else {
-		output += fmt.Sprintf("%v└─ %v\n", indent, self.Kind)
+		output += fmt.Sprintf("%v└─ %v T: %v\n", indent, self.Kind, self.Type)
 
 	}
 

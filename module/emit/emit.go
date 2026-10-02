@@ -14,10 +14,11 @@ var (
 	ErrUnknownAST      = errors.New("unknown AST node encountered")
 
 	sizes = map[ast.Type]int{
-		ast.Byte:  1,
-		ast.Short: 2,
-		ast.Int:   4,
-		ast.Long:  8,
+		ast.Byte:   1,
+		ast.Short:  2,
+		ast.Int:    4,
+		ast.Long:   8,
+		ast.PtrInt: 8,
 	}
 )
 
@@ -129,6 +130,19 @@ func (self *Emit) EmitExpression(master *ast.Node, register string) (string, err
 		r = self.SizedRegister(r, sizes[master.Type])
 
 		return r, err
+	}
+
+	if master.Kind == ast.Ref {
+
+		r := self.GetAddress(self.locals[master.Value].address)
+		return r, nil
+	}
+
+	if master.Kind == ast.Deref {
+
+		r1 := self.LoadLocal(self.locals[master.Value].address, 8)
+		r := self.LoadAddress(r1, 4)
+		return r, nil
 	}
 
 	left, err := self.EmitExpression(master.Left, "")

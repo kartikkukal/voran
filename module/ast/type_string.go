@@ -16,15 +16,16 @@ func _() {
 	_ = x[UShort-5]
 	_ = x[UInt-6]
 	_ = x[ULong-7]
-	_ = x[Float-8]
-	_ = x[Double-9]
-	_ = x[String-10]
-	_ = x[None-11]
+	_ = x[PtrInt-8]
+	_ = x[Float-9]
+	_ = x[Double-10]
+	_ = x[String-11]
+	_ = x[None-12]
 }
 
-const _Type_name = "ByteShortIntLongUByteUShortUIntULongFloatDoubleStringNone"
+const _Type_name = "ByteShortIntLongUByteUShortUIntULongPtrIntFloatDoubleStringNone"
 
-var _Type_index = [...]uint8{0, 4, 9, 12, 16, 21, 27, 31, 36, 41, 47, 53, 57}
+var _Type_index = [...]uint8{0, 4, 9, 12, 16, 21, 27, 31, 36, 42, 47, 53, 59, 63}
 
 func (i Type) String() string {
 	idx := int(i) - 0

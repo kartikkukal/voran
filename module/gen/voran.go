@@ -236,6 +236,26 @@ func (self *Voran) StoreLocal(r string, index int) {
 	self.append("str %v, [q13+%v]", r, index)
 }
 
+func (self *Voran) GetAddress(index int) string {
+	r, ok := self.AllocateRegister(8)
+	if !ok {
+		return ""
+	}
+
+	self.append("mov %v, q13+%v", r, index)
+	return r
+}
+
+func (self *Voran) LoadAddress(r string, size int) string {
+	r1, ok := self.AllocateRegister(size)
+	if !ok {
+		return ""
+	}
+
+	self.append("ld %v, [%v]", r1, r)
+	return r1
+}
+
 func (self *Voran) DeclareFunction(name string) {
 
 	self.labelCounter = 0
@@ -245,7 +265,7 @@ func (self *Voran) DeclareFunction(name string) {
 	self.append("str q13, [q14+8]")
 
 	self.stack = 16
-	self.append("mov q14, q13")
+	self.append("mov q13, q14")
 }
 
 func (self *Voran) ReturnFunction() {
@@ -270,7 +290,7 @@ func (self *Voran) push(r string) {
 
 func (self *Voran) CallFunction(name string) {
 
-	self.append("mov q13, q14")
+	self.append("mov q14, q13")
 	self.append("uadd q14, %v", self.stack)
 	self.append("str q15, [q14]")
 
@@ -308,7 +328,7 @@ func (self *Voran) Interrupt(i int) {
 
 func (self Voran) GetInstructions() []string {
 
-	self.append("int 5")
+	self.append("int 3")
 	self.append("int 0")
 
 	bss := []string{
